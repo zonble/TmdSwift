@@ -21,6 +21,9 @@ struct TmdCLICommand: ParsableCommand {
     @Flag(name: [.short, .long], help: "Only parse and display the score structure summary.")
     var parseOnly: Bool = false
 
+    @Flag(name: [.long], help: "Play the score using the macOS default sound bank.")
+    var play: Bool = false
+
     @Option(name: [.short, .long], help: "Export to MIDI file at the specified path.")
     var midiOutput: String?
 
@@ -59,6 +62,10 @@ struct TmdCLICommand: ParsableCommand {
 
         if parseOnly {
             return
+        }
+
+        if play {
+            try play(sheet: sheet)
         }
 
         // Export to MIDI if requested
@@ -151,6 +158,44 @@ struct TmdCLICommand: ParsableCommand {
                 throw ExitCode.failure
             }
         }
+    }
+
+    private func play(sheet: Sheet) throws {
+#if os(macOS)
+        let soundBankURL = soundfont.map { URL(fileURLWithPath: $0) }
+        let wavData: Data
+        do {
+            wavData = try TMDWAVRenderer.renderWAV(from: sheet, soundBankURL: soundBankURL)
+        } catch {
+            print("Error rendering audio for playback: \(error.localizedDescription)")
+            throw ExitCode.failure
+        }
+
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("tmd-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        do {
+            try wavData.write(to: tempURL)
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/afplay")
+            process.arguments = [tempURL.path]
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                print("Error: afplay exited with status \(process.terminationStatus).")
+                throw ExitCode.failure
+            }
+        } catch let error as ExitCode {
+            throw error
+        } catch {
+            print("Error playing audio: \(error.localizedDescription)")
+            throw ExitCode.failure
+        }
+#else
+        print("Error: --play is currently supported only on macOS.")
+        throw ExitCode.failure
+#endif
     }
 }
 
