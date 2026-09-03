@@ -437,6 +437,33 @@ import TmdABC
     #expect(PitchMapping.abcLowerNames[1] == "^c")
 }
 
+@Test func testPlaybackTimeline() throws {
+    let section = Section(
+        noteLength: 4,
+        unitGroups: [
+            UnitGroup(units: [.note(Note(degree: .c))], length: 1),
+            UnitGroup(units: [.rest], length: 2)
+        ],
+        directives: [
+            SectionDirective(position: 1, kind: .relativeTempo(10)),
+            SectionDirective(position: 1, kind: .relativeKey(2))
+        ]
+    )
+    let sheet = Sheet(
+        speed: 100,
+        paragraphs: [Paragraph(name: "intro", instrument: "Piano", start: 1, sections: [section])],
+        orders: [.name("intro")]
+    )
+
+    let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: "Piano")
+    #expect(timeline.events.count == 2)
+    #expect(timeline.events[0].position == 4)
+    #expect(timeline.events[1].position == 5)
+    #expect(timeline.events[1].duration == 2)
+    #expect(timeline.events[1].state == PlaybackState(tempo: 110, keyOffset: 2, timeSignature: Beat()))
+    #expect(timeline.directives.map(\.position) == [5, 5])
+}
+
 @Test func testFilePathNormalizerVariants() throws {
     #expect(FilePathNormalizer.isFileURL(" file:///tmp/a%20b "))
     #expect(FilePathNormalizer.isFileURL("<file://localhost/tmp/a>"))
