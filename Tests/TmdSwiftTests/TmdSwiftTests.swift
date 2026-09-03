@@ -6,6 +6,7 @@ import TmdMusicXML
 import TmdLilyPond
 import TmdUtils
 import TmdAudio
+import TmdABC
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -227,5 +228,31 @@ import TmdAudio
     #expect(wavData.starts(with: [0x52, 0x49, 0x46, 0x46])) // "RIFF"
 }
 #endif
+
+@Test func testABCGeneration() throws {
+    let tmd = """
+    ::SCORE::
+    ** ABC Test **
+    != 120
+    ?= C
+    <4/4>
+    intro:Piano@|0|{
+    <4*>
+    1 2 3 4
+    }
+    -> intro ->#
+    """
+    guard let sheet = TmdParser.parse(string: tmd) else {
+        Issue.record("Failed to parse ABC test score")
+        return
+    }
+
+    let abc = TMDABCGenerator.generateABC(from: sheet)
+    #expect(abc.contains("X:1"))
+    #expect(abc.contains("T:ABC Test"))
+    #expect(abc.contains("M:4/4"))
+    #expect(abc.contains("K:C"))
+    #expect(abc.contains("V:V1 name=\"Piano\""))
+}
 
 

@@ -2,7 +2,7 @@
 
 A modern Swift implementation of the **TMD** (Text Music Description) markup language parser, toolkit, and music notation exporter.
 
-In memory of **Chen, Chih-Han / aguai** (阿怪, 1974–2019).
+In memory of **Chen, Chih-Han / [aguai](https://github.com/aguai)** (阿怪, 1974–2019).
 
 Original project: [https://github.com/aguai/TMDLang](https://github.com/aguai/TMDLang)
 
@@ -23,16 +23,18 @@ At its core, TMD reflects the practical workflow and mental model of modern popu
 - **Multi-track MIDI (SMF Type 1)** exporter (`TmdMIDI`).
 - **MusicXML 4.0** notation exporter (`TmdMusicXML`) for MuseScore, Sibelius, and web renderers.
 - **LilyPond** engraver exporter (`TmdLilyPond`) for publication-grade score typesetting and PDF rendering.
+- **ABC Notation** exporter (`TmdABC`) for web sheet rendering (`abcjs`) and text-based score sharing.
+- **Offline WAV Audio** synthesizer (`TmdAudio`) powered by CoreAudio DLS SoundFont.
 - A command-line interface (`tmd`) powered by `swift-argument-parser`.
 
 ## Platform Support
 
-| Platform | Parser & AST (`TmdSwift`) | MIDI Exporter (`TmdMIDI`) | MusicXML (`TmdMusicXML`) | LilyPond (`TmdLilyPond`) | WAV Audio (`TmdAudio`) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **macOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(Built-in Roland GS DLS / Custom SF2)* |
-| **Linux (Ubuntu)** | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
-| **Windows** | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
-| **iOS / iPadOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(CoreAudio / Custom SF2)* |
+| Platform | Parser & AST (`TmdSwift`) | MIDI Exporter (`TmdMIDI`) | MusicXML (`TmdMusicXML`) | LilyPond (`TmdLilyPond`) | ABC (`TmdABC`) | WAV Audio (`TmdAudio`) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **macOS** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ *(Built-in Roland GS DLS / Custom SF2)* |
+| **Linux (Ubuntu)** | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
+| **Windows** | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
+| **iOS / iPadOS** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ *(CoreAudio / Custom SF2)* |
 
 ## Installation & Build
 
@@ -74,7 +76,10 @@ swift run tmd sample/三天三夜.tmd -l score.ly
 # 5. Render directly to PDF using the local lilypond compiler
 swift run tmd sample/三天三夜.tmd --pdf-output score.pdf
 
-# 6. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
+# 6. Export to ABC notation file (for abcjs or Markdown web rendering)
+swift run tmd sample/三天三夜.tmd -a score.abc
+
+# 7. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
 swift run tmd sample/三天三夜.tmd -w score.wav
 ```
 
@@ -88,30 +93,18 @@ dependencies: [
 ]
 ```
 
-### Example
+Then import the modules:
 
 ```swift
 import TmdSwift
 import TmdMIDI
 import TmdMusicXML
 import TmdLilyPond
+import TmdABC
 
-let tmdString = """
-::SCORE::
-** Sample **
-!= 120
-?= C
-<4/4>
-
-intro:Piano@|0|{
-<4*>
-1 2 3 4
-}
--> intro ->#
-"""
-
-guard let sheet = TmdParser.parse(string: tmdString) else {
-    fatalError("Failed to parse TMD score")
+// Parse TMD from file or URL
+guard let sheet = try TmdParser.parse(filePathOrURL: "sample/三天三夜.tmd") else {
+    fatalError("Failed to parse")
 }
 
 // Inspect summary
@@ -125,6 +118,9 @@ let musicXML = TMDMusicXMLGenerator.generateMusicXML(from: sheet)
 
 // Export to LilyPond string
 let lilyPond = TMDLilyPondGenerator.generateLilyPond(from: sheet)
+
+// Export to ABC notation string
+let abc = TMDABCGenerator.generateABC(from: sheet)
 ```
 
 ## Modules
@@ -133,6 +129,7 @@ let lilyPond = TMDLilyPondGenerator.generateLilyPond(from: sheet)
 - **`TmdMIDI`**: Binary SMF Type 1 multi-track MIDI file generator.
 - **`TmdMusicXML`**: W3C MusicXML 4.0 Partwise generator.
 - **`TmdLilyPond`**: LilyPond engraving source generator.
+- **`TmdABC`**: Standard ABC Notation (v2.1+) generator.
 - **`TmdAudio`**: Offline WAV audio synthesizer using CoreAudio / DLS SoundFont.
 - **`TmdUtils`**: Cross-platform file path normalizer and character encoding detector.
 - **`TmdCLI`**: Command-line interface executable (`tmd`).

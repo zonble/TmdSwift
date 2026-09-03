@@ -31,6 +31,10 @@ let package = Package(
             name: "TmdAudio",
             targets: ["TmdAudio"]
         ),
+        .library(
+            name: "TmdABC",
+            targets: ["TmdABC"]
+        ),
         .executable(
             name: "tmd",
             targets: ["TmdCLI"]
@@ -62,6 +66,10 @@ let package = Package(
             dependencies: ["TmdSwift"]
         ),
         .target(
+            name: "TmdABC",
+            dependencies: ["TmdSwift"]
+        ),
+        .target(
             name: "TmdAudio",
             dependencies: ["TmdSwift", "TmdMIDI"]
         ),
@@ -72,6 +80,7 @@ let package = Package(
                 "TmdMIDI",
                 "TmdMusicXML",
                 "TmdLilyPond",
+                "TmdABC",
                 "TmdAudio",
                 "TmdUtils",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
@@ -79,7 +88,7 @@ let package = Package(
         ),
         .testTarget(
             name: "TmdSwiftTests",
-            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdAudio", "TmdUtils"]
+            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdABC", "TmdAudio", "TmdUtils"]
         ),
     ],
     swiftLanguageModes: [.v6]

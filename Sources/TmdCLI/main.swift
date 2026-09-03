@@ -5,11 +5,14 @@ import TmdMIDI
 import TmdMusicXML
 import TmdLilyPond
 import TmdAudio
+import TmdABC
 
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "tmd",
-        abstract: "A compiler and toolkit for the TMD music markup language."
+        abstract: "A compiler and toolkit for the TMD music markup language.",
+        discussion: "In memory of Chen, Chih-Han / aguai (阿怪, 1974–2019).\nOriginal project: https://github.com/aguai/TMDLang",
+        version: TmdVersion.current
     )
 
     @Argument(help: "Path to the .tmd file to process.")
@@ -27,6 +30,9 @@ struct TmdCLICommand: ParsableCommand {
     @Option(name: [.customShort("l"), .long], help: "Export to LilyPond (.ly) file at the specified path.")
     var lilypondOutput: String?
 
+    @Option(name: [.customShort("a"), .long], help: "Export to ABC notation (.abc) file at the specified path.")
+    var abcOutput: String?
+
     @Option(name: [.long], help: "Render PDF score using lilypond compiler.")
     var pdfOutput: String?
 
@@ -37,6 +43,7 @@ struct TmdCLICommand: ParsableCommand {
     var soundfont: String?
 
     func run() throws {
+        print("TmdSwift v\(TmdVersion.current) - In memory of Chen, Chih-Han / aguai (阿怪, 1974–2019).")
         let sheet: Sheet
         do {
             guard let parsed = try TmdParser.parse(filePathOrURL: inputPath) else {
@@ -120,6 +127,19 @@ struct TmdCLICommand: ParsableCommand {
                 print("Could not invoke lilypond: \(error.localizedDescription). You can export the .ly file directly using `-l`.")
             }
             try? FileManager.default.removeItem(at: tempLyURL)
+        }
+
+        // Export to ABC notation if requested
+        if let abcPath = abcOutput {
+            let abcString = TMDABCGenerator.generateABC(from: sheet)
+            let outURL = URL(fileURLWithPath: abcPath)
+            do {
+                try abcString.write(to: outURL, atomically: true, encoding: .utf8)
+                print("ABC notation exported successfully to \(abcPath) (\(abcString.utf8.count) bytes)")
+            } catch {
+                print("Error saving ABC notation: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
         }
 
         // Render to WAV audio if requested
