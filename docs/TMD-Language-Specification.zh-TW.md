@@ -299,7 +299,37 @@ power chord；未列入內建集合的 suffix 會以 `.custom(String)` 保存，
 目前 `Unit` 支援 `.note`、`.chord`、`.tie`、`.rest` 和 `.percussion`；歌曲
 metadata 保存於 `Sheet.metadata`，段落 directive 保存於 `Section.directives`。
 
-## 10. Show Program
+## 10. Exporter 能力矩陣
+
+不同輸出格式的資料模型與能力不完全相同。下表中的「部分」表示 exporter
+會讀取該語法，但可能只輸出部分資訊或以註記降級處理；「間接」表示 WAV
+輸出透過 MIDI 渲染，因此沿用 MIDI 的行為。
+
+| 語法能力 | MIDI | MusicXML | LilyPond | ABC | WAV |
+| --- | --- | --- | --- | --- | --- |
+| metadata | 部分忽略 | 映射成 `creator` | 只使用 `composer` | 只使用 `composer` | 間接跟 MIDI |
+| tempo | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| relative tempo | 支援計算 | 目前視為普通 tempo | 目前視為普通 tempo | 目前視為普通 tempo | 間接跟 MIDI |
+| time signature | 支援時間軸 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| absolute key | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| relative key | 會影響音高 | 部分，主要為註記／局部處理 | 部分，主要為註記／局部處理 | 部分，主要為註記／局部處理 | 間接跟 MIDI |
+| rest | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| percussion | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| typed chord | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+| negative start | 支援時間軸 | 尚未完整處理 | 尚未完整處理 | 尚未完整處理 | 間接跟 MIDI |
+| show-program | 忽略 | 忽略 | 忽略 | 忽略 | 忽略 |
+| execution-time | 忽略 | 忽略 | 忽略 | 忽略 | 忽略 |
+| playback orders | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
+
+目前較重要的差異如下：
+
+1. `relative tempo` 在非 MIDI exporter 中尚未累加目前速度。
+2. notation exporter 尚未完整反映 directive 的 `position`。
+3. `relative key` 在 LilyPond、ABC、MusicXML 中多半以註記或局部音高處理呈現，尚未完整輸出真正的轉調語法。
+4. `paragraph.start` 目前主要由 MIDI 時間軸處理。
+5. `show-program` 與 `execution-time` 目前只屬於 AST 與 TMD 格式化能力，尚未對應到輸出格式。
+
+## 11. Show Program
 
 非音樂演出控制內容可以使用三引號區塊：
 
@@ -316,7 +346,7 @@ wait 4
 `Paragraph.executionTime`。本版本不解讀 body 內的控制語言，實際設備執行器
 可在 AST 之上另行實作。
 
-## 11. 解析與編碼
+## 12. 解析與編碼
 
 `TmdParser` 可從以下來源解析：
 
@@ -329,7 +359,7 @@ wait 4
 常見編碼。解析失敗時目前 API 以 `nil` 表示；parser 尚未提供行號、欄號或
 結構化診斷訊息。
 
-## 12. 相容性與未來擴充
+## 13. 相容性與未來擴充
 
 本文件的版本只保證目前 TmdSwift parser 已經能夠解析並保存在 AST 中的語法。
 未來若加入新語法，應遵守以下原則：
@@ -340,7 +370,7 @@ wait 4
 4. 將原始 TMDLang 語法和 TmdSwift 擴充語法分開標示。
 5. 需要無法相容的變更時，提升規格版本並提供 migration 說明。
 
-## 13. 完整範例
+## 14. 完整範例
 
 ```tmd
 ::SCORE::
