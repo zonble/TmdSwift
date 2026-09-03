@@ -196,10 +196,7 @@ public struct TMDABCGenerator {
     // MARK: - Pitch Helpers
 
     private static func noteToABCPitch(_ note: Note, keyOffset: Int) -> String {
-        let degree = note.degree.rawValue
-        guard (1...7).contains(degree) else { return "C" }
-        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var midiPitch = 60 + keyOffset + scaleSteps[degree - 1]
+        var midiPitch = 60 + keyOffset + note.degree.semitoneOffset
 
         switch note.accidental {
         case .sharp: midiPitch += 1
@@ -216,22 +213,19 @@ public struct TMDABCGenerator {
         // C, D, E, F, G, A, B is the octave below Middle C (MIDI 48..59)
         // c, d, e, f, g, a, b is the octave of Middle C and above (MIDI 60..71)
         // c' is MIDI 72, c'' is MIDI 84, C, is MIDI 36, C,, is MIDI 24
-        let noteNamesUpper = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"]
-        let noteNamesLower = ["c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"]
-
         let semitone = ((pitch % 12) + 12) % 12
         let octave = (pitch / 12) - 1 // Middle C (60) is octave 4
 
         if octave >= 5 {
-            let base = noteNamesLower[semitone]
+            let base = PitchMapping.abcLowerNames[semitone]
             let apostrophes = String(repeating: "'", count: octave - 5)
             return "\(base)\(apostrophes)"
         } else if octave == 4 {
-            return noteNamesLower[semitone]
+            return PitchMapping.abcLowerNames[semitone]
         } else if octave == 3 {
-            return noteNamesUpper[semitone]
+            return PitchMapping.abcUpperNames[semitone]
         } else {
-            let base = noteNamesUpper[semitone]
+            let base = PitchMapping.abcUpperNames[semitone]
             let commas = String(repeating: ",", count: 3 - octave)
             return "\(base)\(commas)"
         }
@@ -252,14 +246,10 @@ public struct TMDABCGenerator {
     private static func parseKeySignatureSemitones(_ key: String) -> Int {
         let trimmed = key.trimmingCharacters(in: .whitespaces)
         guard let first = trimmed.first else { return 0 }
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
-
-        if trimmed.contains("'") || trimmed.contains("#") {
-            semi += 1
-        } else if trimmed.contains(",") || trimmed.contains("b") {
-            semi -= 1
-        }
-        return semi
+        guard let degree = ScaleDegree(letter: first) else { return 0 }
+        let accidental = trimmed.contains("'") || trimmed.contains("#")
+            ? Accidental.sharp
+            : trimmed.contains(",") || trimmed.contains("b") ? .flat : .natural
+        return degree.semitoneOffset + accidental.semitoneOffset
     }
 }

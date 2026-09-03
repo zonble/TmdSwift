@@ -241,8 +241,7 @@ public struct TMDLilyPondGenerator {
     private static func noteToLilyPondPitch(_ note: Note, keyOffset: Int) -> String {
         let degree = note.degree.rawValue
         guard (1...7).contains(degree) else { return "c'" }
-        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var midiPitch = 60 + keyOffset + scaleSteps[degree - 1]
+        var midiPitch = 60 + keyOffset + note.degree.semitoneOffset
 
         switch note.accidental {
         case .sharp: midiPitch += 1
@@ -255,10 +254,9 @@ public struct TMDLilyPondGenerator {
     }
 
     private static func chordToLilyPondPitches(_ chord: ChordSymbol, keyOffset: Int) -> [String] {
-        let naturalSemitones = [0, 2, 4, 5, 7, 9, 11]
         let root: Int
         if chord.root.isScaleDegree {
-            root = 60 + keyOffset + naturalSemitones[chord.root.degree.rawValue - 1]
+            root = 60 + keyOffset + chord.root.degree.semitoneOffset
                 + chord.root.accidental.semitoneOffset
         } else {
             root = 48 + chord.root.semitoneOffset
@@ -268,11 +266,10 @@ public struct TMDLilyPondGenerator {
 
     private static func midiPitchToLilyPond(_ pitch: Int) -> String {
         // LilyPond base: c' is Middle C (MIDI 60)
-        let noteNames = ["c", "cis", "d", "dis", "e", "f", "fis", "g", "gis", "a", "ais", "b"]
         let semitone = ((pitch % 12) + 12) % 12
         let octave = (pitch / 12) - 1 // Middle C is octave 4 in standard convention, octave 3 in LilyPond reference
 
-        var name = noteNames[semitone]
+        var name = PitchMapping.lilyPondNames[semitone]
         if octave > 3 {
             name += String(repeating: "'", count: octave - 3)
         } else if octave < 3 {
@@ -296,15 +293,11 @@ public struct TMDLilyPondGenerator {
     private static func parseKeySignatureSemitones(_ key: String) -> Int {
         let trimmed = key.trimmingCharacters(in: .whitespaces)
         guard let first = trimmed.first else { return 0 }
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
-
-        if trimmed.contains("'") || trimmed.contains("#") {
-            semi += 1
-        } else if trimmed.contains(",") || trimmed.contains("b") {
-            semi -= 1
-        }
-        return semi
+        guard let degree = ScaleDegree(letter: first) else { return 0 }
+        let accidental = trimmed.contains("'") || trimmed.contains("#")
+            ? Accidental.sharp
+            : trimmed.contains(",") || trimmed.contains("b") ? .flat : .natural
+        return degree.semitoneOffset + accidental.semitoneOffset
     }
 
     private static func sanitizeIdentifier(_ string: String, index: Int) -> String {

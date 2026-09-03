@@ -384,8 +384,7 @@ public struct TMDMusicXMLGenerator {
     private static func pitchToStepAlterOctave(note: Note, keyOffset: Int) -> (step: String, alter: Int, octave: Int) {
         let degree = note.degree.rawValue
         guard (1...7).contains(degree) else { return ("C", 0, 4) }
-        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var midiPitch = 60 + keyOffset + scaleSteps[degree - 1]
+        var midiPitch = 60 + keyOffset + note.degree.semitoneOffset
         switch note.accidental {
         case .sharp: midiPitch += 1
         case .flat: midiPitch -= 1
@@ -394,12 +393,9 @@ public struct TMDMusicXMLGenerator {
         midiPitch += note.octave * 12
 
         // Convert MIDI pitch to Step + Alter + Octave
-        let midiNames = ["C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"]
-        let midiAlters = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0]
-
         let semitone = ((midiPitch % 12) + 12) % 12
-        let step = midiNames[semitone]
-        let alter = midiAlters[semitone]
+        let step = PitchMapping.musicXMLSteps[semitone]
+        let alter = PitchMapping.musicXMLAlters[semitone]
         let octave = (midiPitch / 12) - 1
 
         return (step, alter, octave)
@@ -408,15 +404,11 @@ public struct TMDMusicXMLGenerator {
     private static func parseKeySignatureSemitones(_ key: String) -> Int {
         let trimmed = key.trimmingCharacters(in: .whitespaces)
         guard let first = trimmed.first else { return 0 }
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
-
-        if trimmed.contains("'") || trimmed.contains("#") {
-            semi += 1
-        } else if trimmed.contains(",") || trimmed.contains("b") {
-            semi -= 1
-        }
-        return semi
+        guard let degree = ScaleDegree(letter: first) else { return 0 }
+        let accidental = trimmed.contains("'") || trimmed.contains("#")
+            ? Accidental.sharp
+            : trimmed.contains(",") || trimmed.contains("b") ? .flat : .natural
+        return degree.semitoneOffset + accidental.semitoneOffset
     }
 
     private static func keySignatureToFifths(_ key: String) -> Int {

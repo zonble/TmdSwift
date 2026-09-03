@@ -277,6 +277,15 @@ public enum ScaleDegree: Int, CaseIterable, Equatable, Sendable {
     }
 }
 
+/// Shared pitch-name mappings used by the text and binary exporters.
+public enum PitchMapping {
+    public static let musicXMLSteps = ["C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"]
+    public static let musicXMLAlters = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0]
+    public static let lilyPondNames = ["c", "cis", "d", "dis", "e", "f", "fis", "g", "gis", "a", "ais", "b"]
+    public static let abcUpperNames = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"]
+    public static let abcLowerNames = ["c", "^c", "d", "^d", "e", "f", "^f", "g", "^g", "a", "^a", "b"]
+}
+
 /// A musical note containing scale degree, accidental, and octave displacement.
 ///
 /// > Note: Originally named `Node` in Aguai's C++ code (likely a typo for `Note`).

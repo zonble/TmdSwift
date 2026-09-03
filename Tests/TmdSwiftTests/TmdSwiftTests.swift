@@ -394,6 +394,15 @@ import TmdABC
     #expect(extended.description == "C7#9")
 }
 
+@Test func testSharedPitchMappings() throws {
+    #expect(ScaleDegree.c.semitoneOffset == 0)
+    #expect(ScaleDegree.f.semitoneOffset == 5)
+    #expect(PitchMapping.musicXMLSteps[10] == "A")
+    #expect(PitchMapping.musicXMLAlters[10] == 1)
+    #expect(PitchMapping.lilyPondNames[11] == "b")
+    #expect(PitchMapping.abcLowerNames[1] == "^c")
+}
+
 @Test func testFilePathNormalizerVariants() throws {
     #expect(FilePathNormalizer.isFileURL(" file:///tmp/a%20b "))
     #expect(FilePathNormalizer.isFileURL("<file://localhost/tmp/a>"))
