@@ -7,8 +7,6 @@ public struct TMDMIDIGenerator {
 
     /// Converts a Sheet into Standard MIDI File (SMF Type 1) binary data.
     public static func generateMIDI(from sheet: Sheet, ticksPerQuarter: UInt16 = defaultTicksPerQuarterNote) -> Data {
-        var midiData = Data()
-
         // 1. Collect arrangement playback sequence
         // If sheet.orders is empty, fallback to playing each unique paragraph in declaration order once.
         let orderSequence: [Order]
@@ -22,21 +20,10 @@ public struct TMDMIDIGenerator {
         // Group paragraphs by (name, instrument)
         // Tracks in MIDI will correspond to distinct instruments
         let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
-        let trackCount = UInt16(distinctInstruments.count + 1) // 1 conductor track + instrument tracks
-
-        // Header Chunk (14 bytes)
-        // "MThd", length=6, format=1, tracks=trackCount, division=ticksPerQuarter
-        midiData.append(contentsOf: "MThd".utf8)
-        midiData.append(contentsOf: UInt32(6).bigEndianBytes)
-        midiData.append(contentsOf: UInt16(1).bigEndianBytes) // Format 1 (multi-track)
-        midiData.append(contentsOf: trackCount.bigEndianBytes)
-        midiData.append(contentsOf: ticksPerQuarter.bigEndianBytes)
-
         // Track 0: Conductor Track (Tempo, Time Signature, Track Name)
-        let conductorTrackData = buildConductorTrack(sheet: sheet, orders: orderSequence, ticksPerQuarter: ticksPerQuarter)
-        midiData.append(contentsOf: "MTrk".utf8)
-        midiData.append(contentsOf: UInt32(conductorTrackData.count).bigEndianBytes)
-        midiData.append(conductorTrackData)
+        var trackData = [TMDMIDIEncoder.encodeTrack(events: buildConductorTrack(
+            sheet: sheet, orders: orderSequence, ticksPerQuarter: ticksPerQuarter
+        ))]
 
         // Calculate sequence order events per instrument
         for (instrumentIndex, instrument) in distinctInstruments.enumerated() {
@@ -48,23 +35,20 @@ public struct TMDMIDIGenerator {
                 channel: channel,
                 ticksPerQuarter: ticksPerQuarter
             )
-            let trackData = encodeTrack(events: trackEvents)
-            midiData.append(contentsOf: "MTrk".utf8)
-            midiData.append(contentsOf: UInt32(trackData.count).bigEndianBytes)
-            midiData.append(trackData)
+            trackData.append(TMDMIDIEncoder.encodeTrack(events: trackEvents))
         }
 
-        return midiData
+        return TMDMIDIEncoder.encodeFile(tracks: trackData, ticksPerQuarter: ticksPerQuarter)
     }
 
     // MARK: - Conductor Track
 
-    private static func buildConductorTrack(sheet: Sheet, orders: [Order], ticksPerQuarter: UInt16) -> Data {
+    private static func buildConductorTrack(sheet: Sheet, orders: [Order], ticksPerQuarter: UInt16) -> [MIDIEvent] {
         var events: [MIDIEvent] = []
 
         // Sequence / Track Name
         let songName = sheet.name.isEmpty ? "TMD Score" : sheet.name
-        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x03, data: Data(songName.utf8))))
+        events.append(MIDIEvent(tick: 0, message: .meta(type: 0x03, data: Data(songName.utf8))))
 
         // Tempo event: microseconds per quarter note = 60,000,000 / BPM
         let bpm = sheet.speed > 0 ? sheet.speed : 120.0
@@ -74,13 +58,13 @@ public struct TMDMIDIGenerator {
             UInt8((mpqn >> 8) & 0xFF),
             UInt8(mpqn & 0xFF)
         ])
-        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x51, data: tempoBytes)))
+        events.append(MIDIEvent(tick: 0, message: .meta(type: 0x51, data: tempoBytes)))
 
         // Time Signature: numerator, denominator as power of 2 (4 -> 2, 8 -> 3), clocks/tick(24), 32nd notes/24 clocks(8)
         let nn = UInt8(sheet.beat.count)
         let dd = UInt8(round(log2(Double(sheet.beat.noteValue > 0 ? sheet.beat.noteValue : 4))))
         let timeSigBytes = Data([nn, dd, 24, 8])
-        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x58, data: timeSigBytes)))
+        events.append(MIDIEvent(tick: 0, message: .meta(type: 0x58, data: timeSigBytes)))
 
         // Local directives are placed on the conductor timeline according to
         // the same arrangement order used by instrument tracks.
@@ -102,15 +86,15 @@ public struct TMDMIDIGenerator {
                         currentTempo = max(1.0, value)
                         let mpqn = UInt32(60_000_000.0 / currentTempo)
                         let bytes = Data([UInt8((mpqn >> 16) & 0xFF), UInt8((mpqn >> 8) & 0xFF), UInt8(mpqn & 0xFF)])
-                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x51, data: bytes)))
+                        events.append(MIDIEvent(tick: tick, message: .meta(type: 0x51, data: bytes)))
                     case .relativeTempo(let value):
                         currentTempo = max(1.0, currentTempo + value)
                         let mpqn = UInt32(60_000_000.0 / currentTempo)
                         let bytes = Data([UInt8((mpqn >> 16) & 0xFF), UInt8((mpqn >> 8) & 0xFF), UInt8(mpqn & 0xFF)])
-                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x51, data: bytes)))
+                        events.append(MIDIEvent(tick: tick, message: .meta(type: 0x51, data: bytes)))
                     case .timeSignature(let beat):
                         let denominator = UInt8(round(log2(Double(max(1, beat.noteValue)))))
-                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x58, data: Data([UInt8(max(1, beat.count)), denominator, 24, 8]))))
+                        events.append(MIDIEvent(tick: tick, message: .meta(type: 0x58, data: Data([UInt8(max(1, beat.count)), denominator, 24, 8]))))
                     case .absoluteKey, .relativeKey:
                         break
                     }
@@ -122,7 +106,7 @@ public struct TMDMIDIGenerator {
             currentTick += calculateParagraphDurationTicks(paragraphName: paragraphName, sheet: sheet, ticksPerQuarter: ticksPerQuarter)
         }
 
-        return encodeTrack(events: events)
+        return events
     }
 
     // MARK: - Instrument Track Construction
@@ -137,11 +121,11 @@ public struct TMDMIDIGenerator {
         var events: [MIDIEvent] = []
 
         // Track Name
-        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x03, data: Data(instrument.utf8))))
+        events.append(MIDIEvent(tick: 0, message: .meta(type: 0x03, data: Data(instrument.utf8))))
 
         // Program change based on instrument hint
         let programNumber = generalMidiProgram(for: instrument)
-        events.append(MIDIEvent(tick: 0, rawBytes: Data([0xC0 | channel, programNumber])))
+        events.append(MIDIEvent(tick: 0, message: .programChange(channel: channel, program: programNumber)))
 
         var currentTick: UInt32 = 0
         let rootOffsetSemis: Int = parseKeySignatureSemitones(sheet.keySignature.description)
@@ -251,18 +235,14 @@ public struct TMDMIDIGenerator {
                         case .note(let note):
                             let midiPitch = noteToMIDIPitch(note, keyOffset: localKeyOffset)
                             if (0...127).contains(midiPitch) {
-                                let noteOn = Data([0x90 | channel, UInt8(midiPitch), 96])
-                                let noteOff = Data([0x80 | channel, UInt8(midiPitch), 0])
-                                events.append(MIDIEvent(tick: unitStartTick, rawBytes: noteOn))
-                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
+                                events.append(MIDIEvent(tick: unitStartTick, message: .noteOn(channel: channel, note: UInt8(midiPitch), velocity: 96)))
+                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), message: .noteOff(channel: channel, note: UInt8(midiPitch))))
                             }
                         case .chord(let chordName):
                             let pitches = chordToMIDIPitches(chordName, keyOffset: localKeyOffset)
                             for p in pitches where (0...127).contains(p) {
-                                let noteOn = Data([0x90 | channel, UInt8(p), 88])
-                                let noteOff = Data([0x80 | channel, UInt8(p), 0])
-                                events.append(MIDIEvent(tick: unitStartTick, rawBytes: noteOn))
-                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
+                                events.append(MIDIEvent(tick: unitStartTick, message: .noteOn(channel: channel, note: UInt8(p), velocity: 88)))
+                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), message: .noteOff(channel: channel, note: UInt8(p))))
                             }
                         case .tie:
                             break
@@ -273,8 +253,8 @@ public struct TMDMIDIGenerator {
                             for (index, character) in pattern.enumerated() {
                                 guard let pitch = percussionMIDIPitch(for: character) else { continue }
                                 let tick = unitStartTick + UInt32(index) * drumDuration
-                                events.append(MIDIEvent(tick: tick, rawBytes: Data([0x99, UInt8(pitch), 96])))
-                                events.append(MIDIEvent(tick: tick + max(1, drumDuration - 1), rawBytes: Data([0x89, UInt8(pitch), 0])))
+                                events.append(MIDIEvent(tick: tick, message: .noteOn(channel: 9, note: UInt8(pitch), velocity: 96)))
+                                events.append(MIDIEvent(tick: tick + max(1, drumDuration - 1), message: .noteOff(channel: 9, note: UInt8(pitch))))
                             }
                         }
                         unitStartTick += subDuration
@@ -354,54 +334,4 @@ public struct TMDMIDIGenerator {
         }?.program ?? 0
     }
 
-    // MARK: - MIDI Binary Encoding
-
-    private struct MIDIEvent {
-        var tick: UInt32
-        var rawBytes: Data
-    }
-
-    private static func encodeTrack(events: [MIDIEvent]) -> Data {
-        var sorted = events.sorted { $0.tick < $1.tick }
-        // Append End Of Track meta event (FF 2F 00)
-        let lastTick = sorted.last?.tick ?? 0
-        sorted.append(MIDIEvent(tick: lastTick, rawBytes: metaEvent(type: 0x2F, data: Data())))
-
-        var trackBytes = Data()
-        var lastTickWritten: UInt32 = 0
-
-        for event in sorted {
-            let delta = event.tick >= lastTickWritten ? (event.tick - lastTickWritten) : 0
-            trackBytes.append(contentsOf: variableLengthQuantity(delta))
-            trackBytes.append(event.rawBytes)
-            lastTickWritten = event.tick
-        }
-        return trackBytes
-    }
-
-    private static func metaEvent(type: UInt8, data: Data) -> Data {
-        var bytes = Data([0xFF, type])
-        bytes.append(contentsOf: variableLengthQuantity(UInt32(data.count)))
-        bytes.append(data)
-        return bytes
-    }
-
-    private static func variableLengthQuantity(_ value: UInt32) -> [UInt8] {
-        var buffer: [UInt8] = []
-        var val = value
-        buffer.append(UInt8(val & 0x7F))
-        val >>= 7
-        while val > 0 {
-            buffer.append(UInt8((val & 0x7F) | 0x80))
-            val >>= 7
-        }
-        return buffer.reversed()
-    }
-}
-
-private extension FixedWidthInteger {
-    var bigEndianBytes: [UInt8] {
-        var value = self.bigEndian
-        return withUnsafeBytes(of: &value) { Array($0) }
-    }
 }

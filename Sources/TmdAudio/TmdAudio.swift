@@ -278,54 +278,7 @@ public struct TMDWAVRenderer {
         }
 
         // Encode into Standard 16-bit Linear PCM Stereo WAV
-        return encodeWAV(left: pcmSamplesLeft, right: pcmSamplesRight, sampleRate: UInt32(sampleRate))
-    }
-
-    private static func encodeWAV(left: [Float], right: [Float], sampleRate: UInt32) -> Data {
-        var wav = Data()
-        let sampleCount = min(left.count, right.count)
-        let numChannels: UInt16 = 2
-        let bitsPerSample: UInt16 = 16
-        let byteRate = sampleRate * UInt32(numChannels * bitsPerSample / 8)
-        let blockAlign = numChannels * bitsPerSample / 8
-        let dataSize = UInt32(sampleCount * Int(blockAlign))
-        let chunkSize = 36 + dataSize
-
-        // RIFF Header
-        wav.append(contentsOf: "RIFF".utf8)
-        wav.append(contentsOf: chunkSize.littleEndianBytes)
-        wav.append(contentsOf: "WAVE".utf8)
-
-        // "fmt " Subchunk
-        wav.append(contentsOf: "fmt ".utf8)
-        wav.append(contentsOf: UInt32(16).littleEndianBytes) // Subchunk1Size for PCM
-        wav.append(contentsOf: UInt16(1).littleEndianBytes)  // AudioFormat 1 = PCM
-        wav.append(contentsOf: numChannels.littleEndianBytes)
-        wav.append(contentsOf: sampleRate.littleEndianBytes)
-        wav.append(contentsOf: byteRate.littleEndianBytes)
-        wav.append(contentsOf: blockAlign.littleEndianBytes)
-        wav.append(contentsOf: bitsPerSample.littleEndianBytes)
-
-        // "data" Subchunk
-        wav.append(contentsOf: "data".utf8)
-        wav.append(contentsOf: dataSize.littleEndianBytes)
-
-        for i in 0..<sampleCount {
-            // Clamp and convert float (-1.0...1.0) to Int16 (-32768...32767)
-            let leftInt16 = Int16(max(-1.0, min(1.0, left[i])) * 32767.0)
-            let rightInt16 = Int16(max(-1.0, min(1.0, right[i])) * 32767.0)
-            wav.append(contentsOf: leftInt16.littleEndianBytes)
-            wav.append(contentsOf: rightInt16.littleEndianBytes)
-        }
-
-        return wav
-    }
-}
-
-private extension FixedWidthInteger {
-    var littleEndianBytes: [UInt8] {
-        var value = self.littleEndian
-        return withUnsafeBytes(of: &value) { Array($0) }
+        return TMDWAVEncoder.encode(left: pcmSamplesLeft, right: pcmSamplesRight, sampleRate: UInt32(sampleRate))
     }
 }
 #else
