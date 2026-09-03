@@ -23,10 +23,20 @@ TMD is a plain-text musical notation DSL designed by composer and music producer
 
 Requires Swift 6.0+ / Xcode 16+.
 
+### Using Mint
+
+You can install the `tmd` CLI tool via [Mint](https://github.com/yonaskolb/Mint):
+
+```bash
+mint install zonble/TmdSwift
+```
+
+### Build from Source
+
 ```bash
 git clone https://github.com/zonble/TmdSwift.git
 cd TmdSwift
-swift build
+swift build -c release
 ```
 
 ## CLI Usage (`tmd`)
