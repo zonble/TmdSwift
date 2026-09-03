@@ -10,6 +10,12 @@ Original project: [https://github.com/aguai/TMDLang](https://github.com/aguai/TM
 
 TMD is a plain-text musical notation DSL designed by composer and music producer 阿怪 (aguai, known for classics such as A-Mei's 《三天三夜》). It allows musicians and arrangers to describe multi-track songs, numbered musical notation (jianpu), chord progressions, tuplets, and playback arrangements in a concise, human-readable text format.
 
+At its core, TMD reflects the practical workflow and mental model of modern popular music songwriting and arrangement:
+- **Lead-sheet and Jianpu thinking**: Melodies are expressed in movable-do numbered scale degrees (`1`–`7`), octaves (`^`, `_`), and accidentals (`'`, `,`), making transpositions and melodic contours intuitive without the visual clutter of traditional staves.
+- **Harmony-first architecture**: Chord symbols (both harmonic scale degrees like `[1]`, `[6m]` and standard chord names like `[Cmaj7]`) are treated as first-class citizens alongside melody lines.
+- **Section-oriented modularity**: Songs are broken down into named song forms (`intro`, `verse`, `chorus`, `bridge`), with independent multi-instrument tracks entering at specified measure offsets (`@|+4|`).
+- **Arrangement as linear execution flow**: Song playback and modulations (`{?+3}`, `{?-3}`) are declared as an explicit execution sequence (`-> intro -> A -> B -> C ->#`), mirroring how musicians and producers compose, rehearse, and structure arrangements in their minds.
+
 **TmdSwift** re-implements the original parser into a clean, modern Swift architecture featuring:
 - A two-stage Lexer + TokenParser pipeline.
 - Normalized musical AST structures (`Beat`, `Note`, `Unit`, `Section`, `Paragraph`, `Order`, `Sheet`).
