@@ -121,5 +121,19 @@ import Foundation
     #expect(sheet?.beat.noteValue == 4)
     #expect(sheet?.paragraphs.count == 10)
     #expect(sheet?.orders.count == 13)
+
+    // Verify summary()
+    let summaryText = sheet?.summary() ?? ""
+    #expect(summaryText.contains("三天三夜"))
+    #expect(summaryText.contains("133.0 BPM"))
+
+    // Verify format() roundtrip parsing
+    let formattedTMD = sheet?.format() ?? ""
+    let reparsed = TmdParser.parse(string: formattedTMD)
+    #expect(reparsed != nil)
+    #expect(reparsed?.name == sheet?.name)
+    #expect(reparsed?.speed == sheet?.speed)
+    #expect(reparsed?.paragraphs.count == sheet?.paragraphs.count)
+    #expect(reparsed?.orders.count == sheet?.orders.count)
 }
 
