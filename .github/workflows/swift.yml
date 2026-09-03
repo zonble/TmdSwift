@@ -13,11 +13,47 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Swift Toolchain (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try { winget source reset --force } catch {}
+          try { winget source update } catch {}
+          winget install --id Swift.Toolchain --exact --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity
+
+          $swiftBin = Get-ChildItem -Path `
+            "$env:LOCALAPPDATA\Programs\Swift\Toolchains\*\usr\bin", `
+            "$env:ProgramFiles\Swift\Toolchains\*\usr\bin" `
+            -Directory -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (-not $swiftBin) {
+            throw "Swift toolchain was installed by winget, but no Swift usr\bin directory was found."
+          }
+
+          $swiftRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $swiftBin.FullName)))
+          $swiftSdk = Get-ChildItem -Path "$swiftRoot\Platforms\*\Windows.platform\Developer\SDKs\Windows.sdk" -Directory -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if (-not $swiftSdk) {
+            throw "Swift toolchain was installed by winget, but no Windows.sdk directory was found under $swiftRoot."
+          }
+
+          $swiftUsrBins = Get-ChildItem -Path $swiftRoot -Recurse -Directory -Filter bin -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\usr\bin" }
+          $swiftPathPrefix = ($swiftUsrBins | ForEach-Object { $_.FullName }) -join ";"
+
+          $swiftBin.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "$($swiftSdk.FullName)\usr\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "SWIFT_BIN=$($swiftBin.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SWIFT_SDKROOT=$($swiftSdk.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SWIFT_PATH_PREFIX=$swiftPathPrefix" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup Swift (Ubuntu)
         if: runner.os == 'Linux'
@@ -25,11 +61,50 @@ jobs:
         with:
           swift-version: "6.0"
 
-      - name: Build
+      - name: Build Package
+        if: runner.os != 'Windows'
         run: swift build -v
 
+      - name: Build Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pathValue = [Environment]::GetEnvironmentVariable('Path', 'Process')
+          if (-not $pathValue) {
+            $pathValue = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+          }
+          Remove-Item Env:PATH -ErrorAction SilentlyContinue
+          Remove-Item Env:Path -ErrorAction SilentlyContinue
+          $env:SDKROOT = $env:SWIFT_SDKROOT
+          $env:Path = "$env:SWIFT_PATH_PREFIX;$pathValue"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Import-Module "$vsInstallPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vsInstallPath -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
+          & "$env:SWIFT_BIN\swift.exe" build -v
+
       - name: Run tests
+        if: runner.os != 'Windows'
         run: swift test -v
 
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pathValue = [Environment]::GetEnvironmentVariable('Path', 'Process')
+          if (-not $pathValue) {
+            $pathValue = [Environment]::GetEnvironmentVariable('PATH', 'Process')
+          }
+          Remove-Item Env:PATH -ErrorAction SilentlyContinue
+          Remove-Item Env:Path -ErrorAction SilentlyContinue
+          $env:SDKROOT = $env:SWIFT_SDKROOT
+          $env:Path = "$env:SWIFT_PATH_PREFIX;$pathValue"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Import-Module "$vsInstallPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vsInstallPath -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64"
+          & "$env:SWIFT_BIN\swift.exe" test
+
       - name: Run CLI check
+        if: runner.os != 'Windows'
         run: swift run tmd sample/三天三夜.tmd -p

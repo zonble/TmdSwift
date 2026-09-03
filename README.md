@@ -25,6 +25,7 @@ TMD is a plain-text musical notation DSL designed by composer and music producer
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **macOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(Built-in Roland GS DLS / Custom SF2)* |
 | **Linux (Ubuntu)** | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
+| **Windows** | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
 | **iOS / iPadOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(CoreAudio / Custom SF2)* |
 
 ## Installation & Build
