@@ -15,9 +15,17 @@ public struct TMDMIDIGenerator {
         var trackData = [TMDMIDIEncoder.encodeTrack(events: conductorEvents(
             sheet: sheet, timeline: timeline, ticksPerQuarter: ticksPerQuarter
         ))]
-        for (instrumentIndex, instrument) in distinctInstruments.enumerated() {
+        var melodyChannel: UInt8 = 0
+        for (_, instrument) in distinctInstruments.enumerated() {
             let midiInstrument = MIDIInstrument.resolve(instrument)
-            let channel = midiInstrument.isPercussion ? 9 : UInt8(instrumentIndex % 9)
+            let channel: UInt8
+            if midiInstrument.isPercussion {
+                channel = 9
+            } else {
+                if melodyChannel == 9 { melodyChannel += 1 } // Skip percussion channel 10 (index 9)
+                channel = melodyChannel % 16
+                melodyChannel += 1
+            }
             let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
             trackData.append(TMDMIDIEncoder.encodeTrack(events: instrumentEvents(
                 timeline: timeline, instrument: instrument, midiInstrument: midiInstrument,
@@ -125,7 +133,7 @@ public struct TMDMIDIGenerator {
     public static func chordToMIDIPitches(_ chord: ChordSymbol, keyOffset: Int) -> [Int] {
         let rootPitch: Int
         if chord.root.isScaleDegree {
-            let note = Note(accidental: chord.root.accidental, degree: chord.root.degree)
+            let note = Note(accidental: chord.root.accidental, degree: chord.root.degree, octave: chord.root.octave)
             rootPitch = noteToMIDIPitch(note, keyOffset: keyOffset) - 12
         } else {
             rootPitch = 48 + chord.root.semitoneOffset

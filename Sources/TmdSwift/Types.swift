@@ -102,11 +102,13 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
 public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible {
     public let degree: ScaleDegree
     public let accidental: Accidental
+    public let octave: Int
     public let isScaleDegree: Bool
 
-    public init(degree: ScaleDegree, accidental: Accidental = .natural, isScaleDegree: Bool = false) {
+    public init(degree: ScaleDegree, accidental: Accidental = .natural, octave: Int = 0, isScaleDegree: Bool = false) {
         self.degree = degree
         self.accidental = accidental
+        self.octave = octave
         self.isScaleDegree = isScaleDegree
     }
 
@@ -114,16 +116,24 @@ public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible 
         let value = isScaleDegree
             ? String(degree.rawValue)
             : degree.letter
-        return switch accidental {
+        let acc = switch accidental {
         case .natural: value
         case .sharp: "\(value)'"
         case .flat: "\(value),"
         }
+        let oct = if octave > 0 {
+            String(repeating: "^", count: octave)
+        } else if octave < 0 {
+            String(repeating: "_", count: -octave)
+        } else {
+            ""
+        }
+        return "\(acc)\(oct)"
     }
 
     /// Chromatic offset of this root within the octave for pitch exporters.
     public var semitoneOffset: Int {
-        degree.semitoneOffset + accidental.semitoneOffset
+        degree.semitoneOffset + accidental.semitoneOffset + (octave * 12)
     }
 }
 
@@ -196,8 +206,17 @@ public struct ChordSymbol: Equatable, Hashable, Sendable, ExpressibleByStringLit
             accidental = (chars[suffixStart] == "'" || chars[suffixStart] == "#") ? .sharp : .flat
             suffixStart += 1
         }
+        var octave = 0
+        while suffixStart < chars.count && (chars[suffixStart] == "_" || chars[suffixStart] == "^") {
+            if chars[suffixStart] == "^" {
+                octave += 1
+            } else if chars[suffixStart] == "_" {
+                octave -= 1
+            }
+            suffixStart += 1
+        }
         let suffix = String(chars.dropFirst(suffixStart))
-        self.init(root: ChordRoot(degree: degree, accidental: accidental, isScaleDegree: isDegree), quality: Self.quality(for: suffix))
+        self.init(root: ChordRoot(degree: degree, accidental: accidental, octave: octave, isScaleDegree: isDegree), quality: Self.quality(for: suffix))
     }
 
     public init(stringLiteral value: String) {

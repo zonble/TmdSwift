@@ -623,4 +623,25 @@ import TmdABC
     #expect(noteEvents[1].duration == 4.0)
 }
 
+@Test func testChordOctaveShift() throws {
+    let chordNormal = ChordSymbol(string: "6m")
+    #expect(chordNormal.root.octave == 0)
+    #expect(chordNormal.quality == .minor)
+
+    let chordDown = ChordSymbol(string: "6_m")
+    #expect(chordDown.root.octave == -1)
+    #expect(chordDown.quality == .minor)
+
+    let chordUp = ChordSymbol(string: "1^")
+    #expect(chordUp.root.octave == 1)
+    #expect(chordUp.quality == .major)
+
+    let normalPitches = TMDMIDIGenerator.chordToMIDIPitches(chordNormal, keyOffset: 0)
+    let downPitches = TMDMIDIGenerator.chordToMIDIPitches(chordDown, keyOffset: 0)
+    #expect(downPitches.count == normalPitches.count)
+    // Each pitch in 6_m must be exactly 12 semitones lower than 6m
+    for (down, normal) in zip(downPitches, normalPitches) {
+        #expect(down == normal - 12)
+    }
+}
 
