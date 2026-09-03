@@ -43,38 +43,33 @@ import Foundation
     #expect(section.unitGroups.count == 7)
 
     // 1 2 3 4
-    #expect(section.unitGroups[0].units[0].type == .node)
-    #expect(section.unitGroups[0].units[0].node.name == 1)
-    #expect(section.unitGroups[1].units[0].node.name == 2)
-    #expect(section.unitGroups[2].units[0].node.name == 3)
-    #expect(section.unitGroups[3].units[0].node.name == 4)
+    #expect(section.unitGroups[0].units[0] == .node(Node(sharpFalls: .normal, name: 1, octave: 0)))
+    #expect(section.unitGroups[1].units[0] == .node(Node(sharpFalls: .normal, name: 2, octave: 0)))
+    #expect(section.unitGroups[2].units[0] == .node(Node(sharpFalls: .normal, name: 3, octave: 0)))
+    #expect(section.unitGroups[3].units[0] == .node(Node(sharpFalls: .normal, name: 4, octave: 0)))
 
     // (1' 2, 3^ 4_)%(--)
     let group5 = section.unitGroups[4]
     #expect(group5.length == 2)
     #expect(group5.units.count == 4)
-    #expect(group5.units[0].node.name == 1 && group5.units[0].node.sharpFalls == .sharp)
-    #expect(group5.units[1].node.name == 2 && group5.units[1].node.sharpFalls == .falls)
-    #expect(group5.units[2].node.name == 3 && group5.units[2].node.octave == 1)
-    #expect(group5.units[3].node.name == 4 && group5.units[3].node.octave == -1)
+    #expect(group5.units[0] == .node(Node(sharpFalls: .sharp, name: 1, octave: 0)))
+    #expect(group5.units[1] == .node(Node(sharpFalls: .falls, name: 2, octave: 0)))
+    #expect(group5.units[2] == .node(Node(sharpFalls: .normal, name: 3, octave: 1)))
+    #expect(group5.units[3] == .node(Node(sharpFalls: .normal, name: 4, octave: -1)))
 
     // [Cmaj7]
     let group6 = section.unitGroups[5]
-    #expect(group6.units[0].type == .chord)
-    #expect(group6.units[0].chord == "Cmaj7")
+    #expect(group6.units[0] == .chord("Cmaj7"))
 
     // -
     let group7 = section.unitGroups[6]
-    #expect(group7.units[0].type == .copy)
+    #expect(group7.units[0] == .copy)
 
     // Orders
     #expect(sheet.orders.count == 3)
-    #expect(sheet.orders[0].type == .name)
-    #expect(sheet.orders[0].name == "intro")
-    #expect(sheet.orders[1].type == .relative)
-    #expect(sheet.orders[1].name == "relative_part")
-    #expect(sheet.orders[2].type == .absolute)
-    #expect(sheet.orders[2].name == "absolute_part")
+    #expect(sheet.orders[0] == .name("intro"))
+    #expect(sheet.orders[1] == .relative("relative_part"))
+    #expect(sheet.orders[2] == .absolute("absolute_part"))
 }
 
 @Test func testParseData() throws {
@@ -87,5 +82,44 @@ import Foundation
     #expect(sheet?.keySignature == "G")
     #expect(sheet?.beat.count == 3)
     #expect(sheet?.beat.node == 4)
+}
+
+@Test func testTokenize() throws {
+    let text = "::SCORE:: ** Title ** != 120 ?= C <4/4> ->#"
+    let tokens = Lexer(string: text).tokenize()
+    #expect(tokens == [
+        .scoreHeader,
+        .doubleAsterisk,
+        .identifier("Title"),
+        .doubleAsterisk,
+        .speedPrefix,
+        .number(120),
+        .keySignaturePrefix,
+        .identifier("C"),
+        .openAngle,
+        .node(Node(sharpFalls: .normal, name: 4, octave: 0)),
+        .slash,
+        .node(Node(sharpFalls: .normal, name: 4, octave: 0)),
+        .closeAngle,
+        .arrowEnd,
+        .eof
+    ])
+}
+
+@Test func testParseSampleFile() throws {
+    let sampleURL = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("sample/三天三夜.tmd")
+    let data = try Data(contentsOf: sampleURL)
+    let sheet = TmdParser.parse(data: data)
+    #expect(sheet != nil)
+    #expect(sheet?.name == "三天三夜")
+    #expect(sheet?.speed == 133.0)
+    #expect(sheet?.beat.count == 4)
+    #expect(sheet?.beat.node == 4)
+    #expect(sheet?.paragraphs.count == 10)
+    #expect(sheet?.orders.count == 13)
 }
 

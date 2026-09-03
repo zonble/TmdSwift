@@ -1,66 +1,99 @@
-struct Beat: Equatable {
-    var count: Int = 4
-    var node: Int = 4
+public struct Beat: Equatable {
+    public var count: Int = 4
+    public var node: Int = 4
+
+    public init(count: Int = 4, node: Int = 4) {
+        self.count = count
+        self.node = node
+    }
 }
 
-enum SharpFalls: Equatable {
+public enum SharpFalls: Equatable {
     case normal
     case sharp
     case falls
 }
 
-struct Node: Equatable {
-    var sharpFalls: SharpFalls = .normal
-    var name: Int = 0
-    var octave: Int = 0
+public struct Node: Equatable {
+    public var sharpFalls: SharpFalls = .normal
+    public var name: Int = 0
+    public var octave: Int = 0
+
+    public init(sharpFalls: SharpFalls = .normal, name: Int = 0, octave: Int = 0) {
+        self.sharpFalls = sharpFalls
+        self.name = name
+        self.octave = octave
+    }
 }
 
-enum UnitType: Equatable {
-    case node
-    case chord
+public enum Unit: Equatable {
+    case node(Node)
+    case chord(String)
     case copy
 }
 
-struct Unit: Equatable {
-    var type: UnitType
-    var node: Node = Node()
-    var chord: String = ""
+public struct UnitGroup: Equatable {
+    public var units: [Unit] = []
+    public var length: Int = 1
+
+    public init(units: [Unit] = [], length: Int = 1) {
+        self.units = units
+        self.length = length
+    }
 }
 
-struct UnitGroup: Equatable {
-    var units: [Unit] = []
-    var length: Int = 1
-}
+public struct Section: Equatable {
+    public var nodeLength: Int = 4
+    public var unitGroups: [UnitGroup] = []
 
-struct Section: Equatable {
-    var nodeLength: Int = 4
-    var unitGroups: [UnitGroup] = []
+    public init(nodeLength: Int = 4, unitGroups: [UnitGroup] = []) {
+        self.nodeLength = nodeLength
+        self.unitGroups = unitGroups
+    }
 }
 
 /// name:instrument@|start|{ ... }
-struct Paragraph: Equatable {
-    var name: String = ""
-    var instrument: String = ""
-    var start: Int = 0
-    var sections: [Section] = []
+public struct Paragraph: Equatable {
+    public var name: String = ""
+    public var instrument: String = ""
+    public var start: Int = 0
+    public var sections: [Section] = []
+
+    public init(name: String = "", instrument: String = "", start: Int = 0, sections: [Section] = []) {
+        self.name = name
+        self.instrument = instrument
+        self.start = start
+        self.sections = sections
+    }
 }
 
-enum OrderType: Equatable {
-    case name
-    case relative
-    case absolute
+public enum Order: Equatable {
+    case name(String)
+    case relative(String)
+    case absolute(String)
 }
 
-struct Order: Equatable {
-    var type: OrderType
-    var name: String
-}
+public struct Sheet: Equatable {
+    public var name: String = ""
+    public var speed: Double = 0.0
+    public var keySignature: String = "C"
+    public var beat: Beat = Beat()
+    public var paragraphs: [Paragraph] = []
+    public var orders: [Order] = []
 
-struct Sheet: Equatable {
-    var name: String = ""
-    var speed: Double = 0.0
-    var keySignature: String = "C"
-    var beat: Beat = Beat()
-    var paragraphs: [Paragraph] = []
-    var orders: [Order] = []
+    public init(
+        name: String = "",
+        speed: Double = 0.0,
+        keySignature: String = "C",
+        beat: Beat = Beat(),
+        paragraphs: [Paragraph] = [],
+        orders: [Order] = []
+    ) {
+        self.name = name
+        self.speed = speed
+        self.keySignature = keySignature
+        self.beat = beat
+        self.paragraphs = paragraphs
+        self.orders = orders
+    }
 }
