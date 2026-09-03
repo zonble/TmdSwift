@@ -194,7 +194,7 @@ public struct TMDLilyPondGenerator {
             return "\(pitchName)\(duration)"
         case .chord(let chordName):
             // In LilyPond, we can output chord notes in angle brackets <c e g>
-            let pitchNames = chordToLilyPondPitches(chordName.description, keyOffset: keyOffset)
+            let pitchNames = chordToLilyPondPitches(chordName, keyOffset: keyOffset)
             if pitchNames.isEmpty {
                 return "r\(duration)"
             } else if pitchNames.count == 1 {
@@ -263,42 +263,16 @@ public struct TMDLilyPondGenerator {
         return midiPitchToLilyPond(midiPitch)
     }
 
-    private static func chordToLilyPondPitches(_ chordName: String, keyOffset: Int) -> [String] {
-        let trimmed = chordName.trimmingCharacters(in: .whitespaces)
-
-        if let firstChar = trimmed.first, firstChar >= "1" && firstChar <= "7" {
-            let deg = Int(String(firstChar))!
-            let rootPitch = 60 + keyOffset + [0, 2, 4, 5, 7, 9, 11][deg - 1]
-
-            if trimmed.contains("m") && !trimmed.contains("maj") {
-                return [midiPitchToLilyPond(rootPitch), midiPitchToLilyPond(rootPitch + 3), midiPitchToLilyPond(rootPitch + 7)]
-            } else if trimmed.contains("7") {
-                return [midiPitchToLilyPond(rootPitch), midiPitchToLilyPond(rootPitch + 4), midiPitchToLilyPond(rootPitch + 7), midiPitchToLilyPond(rootPitch + 10)]
-            } else {
-                return [midiPitchToLilyPond(rootPitch), midiPitchToLilyPond(rootPitch + 4), midiPitchToLilyPond(rootPitch + 7)]
-            }
+    private static func chordToLilyPondPitches(_ chord: ChordSymbol, keyOffset: Int) -> [String] {
+        let naturalSemitones = [0, 2, 4, 5, 7, 9, 11]
+        let root: Int
+        if chord.root.isScaleDegree {
+            root = 60 + keyOffset + naturalSemitones[chord.root.degree.rawValue - 1]
+                + chord.root.accidental.semitoneOffset
+        } else {
+            root = 48 + chord.root.semitoneOffset
         }
-
-        // Standard letter chord
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        if let first = trimmed.first, let baseSemi = letterMap[Character(first.uppercased())] {
-            var root = 48 + baseSemi
-            if trimmed.contains("#") || trimmed.contains("'") {
-                root += 1
-            } else if trimmed.contains("b") || trimmed.contains(",") {
-                root -= 1
-            }
-
-            if trimmed.contains("m") && !trimmed.contains("maj") {
-                return [midiPitchToLilyPond(root), midiPitchToLilyPond(root + 3), midiPitchToLilyPond(root + 7)]
-            } else if trimmed.contains("7") {
-                return [midiPitchToLilyPond(root), midiPitchToLilyPond(root + 4), midiPitchToLilyPond(root + 7), midiPitchToLilyPond(root + 10)]
-            } else {
-                return [midiPitchToLilyPond(root), midiPitchToLilyPond(root + 4), midiPitchToLilyPond(root + 7)]
-            }
-        }
-
-        return ["c'", "e'", "g'"]
+        return chord.quality.semitoneIntervals.map { midiPitchToLilyPond(root + $0) }
     }
 
     private static func midiPitchToLilyPond(_ pitch: Int) -> String {

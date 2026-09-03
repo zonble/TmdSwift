@@ -40,6 +40,15 @@ public enum Accidental: Equatable, Hashable, Sendable {
     ///
     /// > Note: Originally named `SharpFalls::Falls` in Aguai's C++ code.
     case flat
+
+    /// Chromatic adjustment represented by this accidental.
+    public var semitoneOffset: Int {
+        switch self {
+        case .natural: 0
+        case .sharp: 1
+        case .flat: -1
+        }
+    }
 }
 
 /// A typed TMD key signature consisting of a tonic and an optional accidental.
@@ -77,9 +86,9 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
 
     public var description: String {
         switch accidental {
-        case .natural: return tonic.letter
-        case .sharp: return "\(tonic.letter)'"
-        case .flat: return "\(tonic.letter),"
+        case .natural: tonic.letter
+        case .sharp: "\(tonic.letter)'"
+        case .flat: "\(tonic.letter),"
         }
     }
 }
@@ -100,11 +109,17 @@ public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible 
         let value = isScaleDegree
             ? String(degree.rawValue)
             : degree.letter
-        switch accidental {
-        case .natural: return value
-        case .sharp: return "\(value)'"
-        case .flat: return "\(value),"
+        return switch accidental {
+        case .natural: value
+        case .sharp: "\(value)'"
+        case .flat: "\(value),"
         }
+    }
+
+    /// Chromatic offset of this root within the octave for pitch exporters.
+    public var semitoneOffset: Int {
+        let natural = [0, 2, 4, 5, 7, 9, 11][degree.rawValue - 1]
+        return natural + accidental.semitoneOffset
     }
 }
 
@@ -121,6 +136,23 @@ public enum ChordQuality: Equatable, Hashable, Sendable {
     case suspended
     case power
     case custom(String)
+
+    /// Semitone intervals used by pitch-based exporters.
+    public var semitoneIntervals: [Int] {
+        switch self {
+        case .major: [0, 4, 7]
+        case .minor: [0, 3, 7]
+        case .dominant7: [0, 4, 7, 10]
+        case .major7: [0, 4, 7, 11]
+        case .minor7: [0, 3, 7, 10]
+        case .diminished: [0, 3, 6]
+        case .halfDiminished: [0, 3, 6, 10]
+        case .augmented: [0, 4, 8]
+        case .suspended: [0, 5, 7]
+        case .power: [0, 7]
+        case .custom: [0, 4, 7]
+        }
+    }
 }
 
 /// A typed chord symbol with a finite common-quality vocabulary and extensibility.

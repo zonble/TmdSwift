@@ -257,7 +257,7 @@ public struct TMDMIDIGenerator {
                                 events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
                             }
                         case .chord(let chordName):
-                            let pitches = chordToMIDIPitches(chordName.description, keyOffset: localKeyOffset)
+                            let pitches = chordToMIDIPitches(chordName, keyOffset: localKeyOffset)
                             for p in pitches where (0...127).contains(p) {
                                 let noteOn = Data([0x90 | channel, UInt8(p), 88])
                                 let noteOff = Data([0x80 | channel, UInt8(p), 0])
@@ -327,47 +327,19 @@ public struct TMDMIDIGenerator {
 
     /// Resolves chord names (degree numbers like `1`, `6m`, `4`, `5`, or chord names like `Cmaj7`).
     public static func chordToMIDIPitches(_ chord: String, keyOffset: Int) -> [Int] {
-        let trimmed = chord.trimmingCharacters(in: .whitespaces)
+        chordToMIDIPitches(ChordSymbol(string: chord), keyOffset: keyOffset)
+    }
 
-        // Check if starts with a degree number 1~7
-        if let firstChar = trimmed.first, firstChar >= "1" && firstChar <= "7" {
-            let deg = Int(String(firstChar))!
-            guard let scaleDegree = ScaleDegree(rawValue: deg) else { return [] }
-            let rootNote = Note(accidental: .natural, degree: scaleDegree, octave: 0)
-            let rootPitch = noteToMIDIPitch(rootNote, keyOffset: keyOffset) - 12 // Drop chord root by an octave for warmth
-
-            // Check if minor (e.g. 6m)
-            if trimmed.contains("m") && !trimmed.contains("maj") {
-                return [rootPitch, rootPitch + 3, rootPitch + 7]
-            } else if trimmed.contains("7") {
-                return [rootPitch, rootPitch + 4, rootPitch + 7, rootPitch + 10]
-            } else {
-                return [rootPitch, rootPitch + 4, rootPitch + 7]
-            }
+    /// Resolves a typed chord symbol into MIDI pitches.
+    public static func chordToMIDIPitches(_ chord: ChordSymbol, keyOffset: Int) -> [Int] {
+        let rootPitch: Int
+        if chord.root.isScaleDegree {
+            let note = Note(accidental: chord.root.accidental, degree: chord.root.degree)
+            rootPitch = noteToMIDIPitch(note, keyOffset: keyOffset) - 12
+        } else {
+            rootPitch = 48 + chord.root.semitoneOffset
         }
-
-        // Standard letter chord like C, G, Am, F
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        if let first = trimmed.first, let baseSemi = letterMap[Character(first.uppercased())] {
-            var root = 48 + baseSemi
-            if trimmed.contains("#") || trimmed.contains("'") {
-                root += 1
-            } else if trimmed.contains("b") || trimmed.contains(",") {
-                root -= 1
-            }
-
-            if trimmed.contains("m") && !trimmed.contains("maj") {
-                return [root, root + 3, root + 7]
-            } else if trimmed.contains("maj7") {
-                return [root, root + 4, root + 7, root + 11]
-            } else if trimmed.contains("7") {
-                return [root, root + 4, root + 7, root + 10]
-            } else {
-                return [root, root + 4, root + 7]
-            }
-        }
-
-        return [48 + keyOffset, 52 + keyOffset, 55 + keyOffset]
+        return chord.quality.semitoneIntervals.map { rootPitch + $0 }
     }
 
     public static func parseKeySignatureSemitones(_ key: String) -> Int {
