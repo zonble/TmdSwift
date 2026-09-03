@@ -2,6 +2,8 @@ import Testing
 import Foundation
 @testable import TmdSwift
 import TmdMIDI
+import TmdMusicXML
+import TmdLilyPond
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -142,6 +144,20 @@ import TmdMIDI
         let midi = TMDMIDIGenerator.generateMIDI(from: validSheet)
         #expect(!midi.isEmpty)
         #expect(midi.starts(with: [0x4D, 0x54, 0x68, 0x64])) // "MThd"
+
+        // Verify MusicXML generation
+        let xml = TMDMusicXMLGenerator.generateMusicXML(from: validSheet)
+        #expect(xml.contains("score-partwise"))
+        #expect(xml.contains("三天三夜"))
+        #expect(xml.contains("<part-list>"))
+        #expect(xml.contains("</score-partwise>"))
+
+        // Verify LilyPond generation
+        let ly = TMDLilyPondGenerator.generateLilyPond(from: validSheet)
+        #expect(ly.contains("\\version"))
+        #expect(ly.contains("三天三夜"))
+        #expect(ly.contains("\\score"))
+        #expect(ly.contains("\\new Staff"))
     }
 }
 

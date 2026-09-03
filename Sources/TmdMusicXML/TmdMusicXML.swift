@@ -1,0 +1,362 @@
+import Foundation
+import TmdSwift
+
+/// MusicXML generator for TMD Sheets.
+///
+/// Exports the Sheet AST into W3C MusicXML (Partwise) format for use with notation software
+/// such as MuseScore, Finale, Sibelius, Dorico, or web renderers like OpenSheetMusicDisplay.
+public struct TMDMusicXMLGenerator {
+
+    /// Generates MusicXML UTF-8 string from a Sheet.
+    public static func generateMusicXML(from sheet: Sheet) -> String {
+        var xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
+        <score-partwise version="4.0">
+          <work>
+            <work-title>\(escapeXML(sheet.name.isEmpty ? "Untitled Score" : sheet.name))</work-title>
+          </work>
+          <identification>
+            <creator type="composer">TMD</creator>
+            <encoding>
+              <software>TmdSwift MusicXML Exporter</software>
+            </encoding>
+          </identification>
+
+        """
+
+        let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
+        let instruments = distinctInstruments.isEmpty ? ["Piano"] : distinctInstruments
+
+        // Part List
+        xml += "  <part-list>\n"
+        for (idx, inst) in instruments.enumerated() {
+            let partID = "P\(idx + 1)"
+            xml += """
+                <score-part id="\(partID)">
+                  <part-name>\(escapeXML(inst))</part-name>
+                </score-part>
+
+            """
+        }
+        xml += "  </part-list>\n"
+
+        // Order flow
+        let orders: [Order]
+        if sheet.orders.isEmpty {
+            let uniqueNames = Set(sheet.paragraphs.map { $0.name })
+            orders = sheet.paragraphs.map { $0.name }.filter { uniqueNames.contains($0) }.map { Order.name($0) }
+        } else {
+            orders = sheet.orders
+        }
+
+        let divisions = 16 // 16 divisions per quarter note gives high subdivision precision
+
+        // Generate <part> for each instrument
+        for (idx, inst) in instruments.enumerated() {
+            let partID = "P\(idx + 1)"
+            xml += "  <part id=\"\(partID)\">\n"
+            xml += generatePartMeasures(
+                instrument: inst,
+                sheet: sheet,
+                orders: orders,
+                divisions: divisions
+            )
+            xml += "  </part>\n"
+        }
+
+        xml += "</score-partwise>\n"
+        return xml
+    }
+
+    private static func generatePartMeasures(
+        instrument: String,
+        sheet: Sheet,
+        orders: [Order],
+        divisions: Int
+    ) -> String {
+        var xml = ""
+        var measureNumber = 1
+        let rootOffset = parseKeySignatureSemitones(sheet.keySignature)
+        var currentModulation = 0
+
+        // Divisions per beat (quarter note) = divisions
+        // Duration of one quarter note = divisions
+        let beatsPerMeasure = sheet.beat.count
+        let noteValue = sheet.beat.noteValue > 0 ? sheet.beat.noteValue : 4
+        let measureDivisions = (divisions * 4 * beatsPerMeasure) / noteValue
+
+        for order in orders {
+            switch order {
+            case .relative(let rel):
+                if let delta = Int(rel.replacingOccurrences(of: "+", with: "")) {
+                    currentModulation += delta
+                }
+            case .absolute(let abs):
+                currentModulation = parseKeySignatureSemitones(abs) - rootOffset
+            case .name(let paragraphName):
+                let matchingParagraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument })
+
+                guard let paragraph = matchingParagraph else {
+                    // Empty measure for this instrument
+                    xml += generateEmptyMeasure(
+                        measureNumber: measureNumber,
+                        measureDivisions: measureDivisions,
+                        sheet: sheet,
+                        divisions: divisions,
+                        isFirstMeasure: measureNumber == 1
+                    )
+                    measureNumber += 1
+                    continue
+                }
+
+                let totalKeyOffset = rootOffset + currentModulation
+
+                for (sIdx, section) in paragraph.sections.enumerated() {
+                    let isFirstOverall = (measureNumber == 1 && sIdx == 0)
+                    xml += generateSectionMeasure(
+                        section: section,
+                        measureNumber: measureNumber,
+                        measureDivisions: measureDivisions,
+                        keyOffset: totalKeyOffset,
+                        sheet: sheet,
+                        divisions: divisions,
+                        isFirstMeasure: isFirstOverall
+                    )
+                    measureNumber += 1
+                }
+            }
+        }
+
+        if measureNumber == 1 {
+            // Ensure at least one measure exists
+            xml += generateEmptyMeasure(
+                measureNumber: 1,
+                measureDivisions: measureDivisions,
+                sheet: sheet,
+                divisions: divisions,
+                isFirstMeasure: true
+            )
+        }
+
+        return xml
+    }
+
+    private static func generateEmptyMeasure(
+        measureNumber: Int,
+        measureDivisions: Int,
+        sheet: Sheet,
+        divisions: Int,
+        isFirstMeasure: Bool
+    ) -> String {
+        var m = "    <measure number=\"\(measureNumber)\">\n"
+        if isFirstMeasure {
+            m += generateAttributesXML(sheet: sheet, divisions: divisions)
+        }
+        m += """
+                <note>
+                  <rest measure="yes"/>
+                  <duration>\(measureDivisions)</duration>
+                </note>
+            </measure>
+
+        """
+        return m
+    }
+
+    private static func generateSectionMeasure(
+        section: Section,
+        measureNumber: Int,
+        measureDivisions: Int,
+        keyOffset: Int,
+        sheet: Sheet,
+        divisions: Int,
+        isFirstMeasure: Bool
+    ) -> String {
+        var m = "    <measure number=\"\(measureNumber)\">\n"
+        if isFirstMeasure {
+            m += generateAttributesXML(sheet: sheet, divisions: divisions)
+        }
+
+        let baseNoteDivisions = (divisions * 4) / max(1, section.noteLength)
+
+        if section.unitGroups.isEmpty {
+            m += """
+                    <note>
+                      <rest measure="yes"/>
+                      <duration>\(measureDivisions)</duration>
+                    </note>
+
+            """
+        } else {
+            for unitGroup in section.unitGroups {
+                let groupDivisions = unitGroup.length * baseNoteDivisions
+                let activeUnits = unitGroup.units.filter { $0 != .tie }
+
+                if activeUnits.isEmpty {
+                    // Rest
+                    m += """
+                            <note>
+                              <rest/>
+                              <duration>\(groupDivisions)</duration>
+                            </note>
+
+                    """
+                } else {
+                    let subDuration = max(1, groupDivisions / activeUnits.count)
+                    for unit in activeUnits {
+                        switch unit {
+                        case .note(let note):
+                            m += generateNoteXML(note: note, duration: subDuration, keyOffset: keyOffset)
+                        case .chord(let chordName):
+                            m += generateChordXML(chordName: chordName, duration: subDuration, keyOffset: keyOffset)
+                        case .tie:
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        m += "    </measure>\n"
+        return m
+    }
+
+    private static func generateAttributesXML(sheet: Sheet, divisions: Int) -> String {
+        return """
+              <attributes>
+                <divisions>\(divisions)</divisions>
+                <key>
+                  <fifths>\(keySignatureToFifths(sheet.keySignature))</fifths>
+                </key>
+                <time>
+                  <beats>\(sheet.beat.count)</beats>
+                  <beat-type>\(sheet.beat.noteValue)</beat-type>
+                </time>
+                <clef>
+                  <sign>G</sign>
+                  <line>2</line>
+                </clef>
+              </attributes>
+              <direction placement="above">
+                <direction-type>
+                  <metronome>
+                    <beat-unit>quarter</beat-unit>
+                    <per-minute>\(Int(sheet.speed > 0 ? sheet.speed : 120))</per-minute>
+                  </metronome>
+                </direction-type>
+                <sound tempo="\(Int(sheet.speed > 0 ? sheet.speed : 120))"/>
+              </direction>
+
+        """
+    }
+
+    private static func generateNoteXML(note: Note, duration: Int, keyOffset: Int) -> String {
+        let (step, alter, octave) = pitchToStepAlterOctave(note: note, keyOffset: keyOffset)
+        var xml = """
+                <note>
+                  <pitch>
+                    <step>\(step)</step>
+
+        """
+        if alter != 0 {
+            xml += "            <alter>\(alter)</alter>\n"
+        }
+        xml += """
+                    <octave>\(octave)</octave>
+                  </pitch>
+                  <duration>\(duration)</duration>
+                </note>
+
+        """
+        return xml
+    }
+
+    private static func generateChordXML(chordName: String, duration: Int, keyOffset: Int) -> String {
+        // Output chord harmony symbol & note representation
+        let xml = """
+              <harmony>
+                <root>
+                  <root-step>\(escapeXML(chordName))</root-step>
+                </root>
+                <kind text="\(escapeXML(chordName))">other</kind>
+              </harmony>
+              <note>
+                <rest/>
+                <duration>\(duration)</duration>
+              </note>
+
+        """
+        return xml
+    }
+
+    // MARK: - Musical Conversion Helpers
+
+    private static func pitchToStepAlterOctave(note: Note, keyOffset: Int) -> (step: String, alter: Int, octave: Int) {
+        guard note.degree >= 1 && note.degree <= 7 else {
+            return ("C", 0, 4)
+        }
+        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
+        var midiPitch = 60 + keyOffset + scaleSteps[note.degree - 1]
+        switch note.accidental {
+        case .sharp: midiPitch += 1
+        case .flat: midiPitch -= 1
+        case .natural: break
+        }
+        midiPitch += note.octave * 12
+
+        // Convert MIDI pitch to Step + Alter + Octave
+        let midiNames = ["C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "A", "B"]
+        let midiAlters = [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0]
+
+        let semitone = ((midiPitch % 12) + 12) % 12
+        let step = midiNames[semitone]
+        let alter = midiAlters[semitone]
+        let octave = (midiPitch / 12) - 1
+
+        return (step, alter, octave)
+    }
+
+    private static func parseKeySignatureSemitones(_ key: String) -> Int {
+        let trimmed = key.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.first else { return 0 }
+        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
+        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
+
+        if trimmed.contains("'") || trimmed.contains("#") {
+            semi += 1
+        } else if trimmed.contains(",") || trimmed.contains("b") {
+            semi -= 1
+        }
+        return semi
+    }
+
+    private static func keySignatureToFifths(_ key: String) -> Int {
+        let trimmed = key.trimmingCharacters(in: .whitespaces).uppercased()
+        switch trimmed {
+        case "C": return 0
+        case "G": return 1
+        case "D": return 2
+        case "A": return 3
+        case "E": return 4
+        case "B": return 5
+        case "F#", "F'": return 6
+        case "F": return -1
+        case "BB", "B,": return -2
+        case "EB", "E,": return -3
+        case "AB", "A,", "A'": return 3 // A major = 3 sharps
+        case "DB", "D,": return -5
+        case "GB", "G,": return -6
+        default: return 0
+        }
+    }
+
+    private static func escapeXML(_ string: String) -> String {
+        return string
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
+    }
+}
