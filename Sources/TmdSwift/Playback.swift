@@ -43,7 +43,9 @@ public enum TMDPlaybackRenderer {
     public static func render(sheet: Sheet, instrument: String) -> PlaybackTimeline {
         let paragraphs = sheet.paragraphs.filter { $0.instrument == instrument }
         let orders = sheet.orders.isEmpty
-            ? sheet.paragraphs.map(\.name).map(Order.name)
+            ? sheet.paragraphs.map(\.name).reduce(into: [String]()) { names, name in
+                if !names.contains(name) { names.append(name) }
+            }.map(Order.name)
             : sheet.orders
         var state = PlaybackState(
             tempo: sheet.speed > 0 ? sheet.speed : 120,

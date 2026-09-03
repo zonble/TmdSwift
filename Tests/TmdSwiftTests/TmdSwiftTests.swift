@@ -346,10 +346,12 @@ import TmdABC
     #expect(musicXML.contains("<unpitched>"))
     let lilyPond = TMDLilyPondGenerator.generateLilyPond(from: sheet)
     #expect(lilyPond.contains("\\tempo 4 = 140"))
+    #expect(lilyPond.contains("\\tempo 4 = 150"))
     #expect(lilyPond.contains("\\time 3/4"))
     #expect(lilyPond.contains("\\new DrumStaff"))
     let abc = TMDABCGenerator.generateABC(from: sheet)
     #expect(abc.contains("Q:1/4=140"))
+    #expect(abc.contains("Q:1/4=150"))
     #expect(abc.contains("M:3/4"))
     #expect(abc.contains("%%MIDI channel 10"))
 }

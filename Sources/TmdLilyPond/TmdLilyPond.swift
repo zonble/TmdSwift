@@ -35,21 +35,13 @@ public struct TMDLilyPondGenerator {
         let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
         let instruments = distinctInstruments.isEmpty ? ["Piano"] : distinctInstruments
 
-        let orders: [Order]
-        if sheet.orders.isEmpty {
-            let uniqueNames = Set(sheet.paragraphs.map { $0.name })
-            orders = sheet.paragraphs.map { $0.name }.filter { uniqueNames.contains($0) }.map { Order.name($0) }
-        } else {
-            orders = sheet.orders
-        }
-
         // Generate track music definitions for each instrument
         for (idx, inst) in instruments.enumerated() {
             let varName = sanitizeIdentifier(inst, index: idx)
             let isDrum = paragraphsContainPercussion(sheet.paragraphs, instrument: inst)
             ly += "\(varName) = \(isDrum ? "\\drummode " : ""){\n"
             ly += "  \\global\n"
-            ly += generateTrackMusic(instrument: inst, sheet: sheet, orders: orders, percussion: isDrum)
+            ly += generateTrackMusic(instrument: inst, sheet: sheet, percussion: isDrum)
             ly += "}\n\n"
         }
 
@@ -81,7 +73,6 @@ public struct TMDLilyPondGenerator {
     private static func generateTrackMusic(
         instrument: String,
         sheet: Sheet,
-        orders: [Order],
         percussion: Bool
     ) -> String {
         let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
@@ -90,23 +81,23 @@ public struct TMDLilyPondGenerator {
         for event in timeline.events {
             while directiveIndex < timeline.directives.count,
                   timeline.directives[directiveIndex].position <= event.position {
-                result += formatDirective(timeline.directives[directiveIndex].kind)
+                result += formatDirective(timeline.directives[directiveIndex])
                 directiveIndex += 1
             }
             result += formatPlaybackEvent(event, percussion: percussion)
             result += " "
         }
         while directiveIndex < timeline.directives.count {
-            result += formatDirective(timeline.directives[directiveIndex].kind)
+            result += formatDirective(timeline.directives[directiveIndex])
             directiveIndex += 1
         }
         result += "|\n"
         return result
     }
 
-    private static func formatDirective(_ kind: SectionDirectiveKind) -> String {
-        switch kind {
-        case .tempo(let value), .relativeTempo(let value): "\\tempo 4 = \(Int(value.rounded())) "
+    private static func formatDirective(_ directive: PlaybackDirectiveEvent) -> String {
+        switch directive.kind {
+        case .tempo, .relativeTempo: "\\tempo 4 = \(Int(directive.state.tempo.rounded())) "
         case .timeSignature(let beat): "\\time \(beat.count)/\(beat.noteValue) "
         case .absoluteKey(let key): "\\key \(lilyPondKey(key)) "
         case .relativeKey: "% TMD relative key modulation "
@@ -131,104 +122,6 @@ public struct TMDLilyPondGenerator {
     private static func formatQuarterDuration(_ quarterNotes: Double) -> String {
         let value = Int((4.0 / max(quarterNotes, 0.0001)).rounded())
         return "\(max(1, value))"
-    }
-
-    private static func generateSectionMusic(section: Section, keyOffset: Int, percussion: Bool = false) -> String {
-        var tokens: [String] = []
-        let baseDuration = section.noteLength // e.g. 16 for 16th note, 4 for quarter note
-
-        for directive in section.directives {
-            switch directive.kind {
-            case .tempo(let value), .relativeTempo(let value):
-                tokens.append("\\tempo 4 = \(Int(value.rounded()))")
-            case .timeSignature(let beat):
-                tokens.append("\\time \(beat.count)/\(beat.noteValue)")
-            case .absoluteKey(let key):
-                tokens.append("\\key \(lilyPondKey(key))")
-            case .relativeKey:
-                tokens.append("% TMD relative key modulation")
-            }
-        }
-
-        if section.unitGroups.isEmpty {
-            return "  r4"
-        }
-
-        var localKeyOffset = keyOffset
-        var sectionPosition = 0
-        var directiveIndex = 0
-        let sortedDirectives = section.directives.sorted { $0.position < $1.position }
-        for unitGroup in section.unitGroups {
-            while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
-                switch sortedDirectives[directiveIndex].kind {
-                case .relativeKey(let delta): localKeyOffset += delta
-                case .absoluteKey(let key): localKeyOffset = KeySignature(string: key).semitoneOffset
-                default: break
-                }
-                directiveIndex += 1
-            }
-            let activeUnits = unitGroup.units.filter { $0 != .tie }
-
-            if activeUnits.isEmpty {
-                // Rest
-                let dur = formatDuration(noteLength: baseDuration, spanCount: unitGroup.length)
-                tokens.append("r\(dur)")
-            } else if activeUnits.count == 1 && unitGroup.length == 1 {
-                // Single note or chord
-                let dur = "\(baseDuration)"
-                tokens.append(formatUnit(activeUnits[0], duration: dur, keyOffset: localKeyOffset, percussion: percussion))
-            } else {
-                // Tuplet or multiple units over span
-                let tupletActual = activeUnits.count
-                let tupletNormal = unitGroup.length
-                let dur = "\(baseDuration)"
-                var groupTokens: [String] = []
-                for u in activeUnits {
-                    groupTokens.append(formatUnit(u, duration: dur, keyOffset: localKeyOffset, percussion: percussion))
-                }
-
-                if tupletActual != tupletNormal {
-                    tokens.append("\\tuplet \(tupletActual)/\(tupletNormal) { \(groupTokens.joined(separator: " ")) }")
-                } else {
-                    tokens.append(contentsOf: groupTokens)
-                }
-            }
-            sectionPosition += unitGroup.length
-        }
-
-        return "  " + tokens.joined(separator: " ")
-    }
-
-    private static func formatUnit(_ unit: TmdSwift.Unit, duration: String, keyOffset: Int, percussion: Bool = false) -> String {
-        switch unit {
-        case .note(let note):
-            let pitchName = noteToLilyPondPitch(note, keyOffset: keyOffset)
-            return "\(pitchName)\(duration)"
-        case .chord(let chordName):
-            // In LilyPond, we can output chord notes in angle brackets <c e g>
-            let pitchNames = chordToLilyPondPitches(chordName, keyOffset: keyOffset)
-            if pitchNames.isEmpty {
-                return "r\(duration)"
-            } else if pitchNames.count == 1 {
-                return "\(pitchNames[0])\(duration)"
-            } else {
-                return "<\(pitchNames.joined(separator: " "))>\(duration)"
-            }
-        case .tie:
-            return "r\(duration)"
-        case .rest:
-            return "r\(duration)"
-        case .percussion(let pattern):
-            let names = pattern.compactMap { character -> String? in
-                switch character {
-                case "X", "x": return "hh"
-                case "T", "t": return "toml"
-                case "S", "s": return "sn"
-                default: return nil
-                }
-            }
-            return names.map { "\($0)\(duration)" }.joined(separator: " ")
-        }
     }
 
     private static func paragraphsContainPercussion(_ paragraphs: [Paragraph], instrument: String) -> Bool {

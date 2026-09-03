@@ -23,14 +23,6 @@ public struct TMDABCGenerator {
         let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
         let instruments = distinctInstruments.isEmpty ? ["Piano"] : distinctInstruments
 
-        let orders: [Order]
-        if sheet.orders.isEmpty {
-            let uniqueNames = Set(sheet.paragraphs.map { $0.name })
-            orders = sheet.paragraphs.map { $0.name }.filter { uniqueNames.contains($0) }.map { Order.name($0) }
-        } else {
-            orders = sheet.orders
-        }
-
         // Output Voice headers
         for (idx, inst) in instruments.enumerated() {
             let vId = "V\(idx + 1)"
@@ -45,7 +37,7 @@ public struct TMDABCGenerator {
             if paragraphsContainPercussion(sheet.paragraphs, instrument: inst) {
                 abc += "%%MIDI channel 10\n"
             }
-            abc += generateTrackMusic(instrument: inst, sheet: sheet, orders: orders)
+            abc += generateTrackMusic(instrument: inst, sheet: sheet)
             abc += "\n\n"
         }
 
@@ -54,8 +46,7 @@ public struct TMDABCGenerator {
 
     private static func generateTrackMusic(
         instrument: String,
-        sheet: Sheet,
-        orders: [Order]
+        sheet: Sheet
     ) -> String {
         let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
         var result = ""
@@ -63,23 +54,23 @@ public struct TMDABCGenerator {
         for event in timeline.events {
             while directiveIndex < timeline.directives.count,
                   timeline.directives[directiveIndex].position <= event.position {
-                result += formatDirective(timeline.directives[directiveIndex].kind)
+                result += formatDirective(timeline.directives[directiveIndex])
                 directiveIndex += 1
             }
             result += formatPlaybackEvent(event)
             result += " "
         }
         while directiveIndex < timeline.directives.count {
-            result += formatDirective(timeline.directives[directiveIndex].kind)
+            result += formatDirective(timeline.directives[directiveIndex])
             directiveIndex += 1
         }
         result += "|\n"
         return result
     }
 
-    private static func formatDirective(_ kind: SectionDirectiveKind) -> String {
-        switch kind {
-        case .tempo(let value), .relativeTempo(let value): "Q:1/4=\(Int(value.rounded())) "
+    private static func formatDirective(_ directive: PlaybackDirectiveEvent) -> String {
+        switch directive.kind {
+        case .tempo, .relativeTempo: "Q:1/4=\(Int(directive.state.tempo.rounded())) "
         case .timeSignature(let beat): "M:\(beat.count)/\(beat.noteValue) "
         case .absoluteKey(let key): "K:\(abcKey(key)) "
         case .relativeKey: "% TMD relative key modulation "
@@ -96,92 +87,6 @@ public struct TMDABCGenerator {
         case .percussion(let pattern):
             let pitches = pattern.compactMap { ["X": "^F", "x": "^F", "T": "A", "t": "A", "S": "D", "s": "D"][$0] }
             return pitches.map { "\($0)\(suffix)" }.joined(separator: " ")
-        }
-    }
-
-    private static func generateSectionMusic(section: Section, keyOffset: Int) -> String {
-        var tokens: [String] = []
-        // In L:1/16, 16th note has multiplier 1. Quarter note (4) has multiplier 4.
-        let base16thMultiplier = max(1, 16 / max(1, section.noteLength))
-
-        for directive in section.directives {
-            switch directive.kind {
-            case .tempo(let value), .relativeTempo(let value):
-                tokens.append("Q:1/4=\(Int(value.rounded()))")
-            case .timeSignature(let beat):
-                tokens.append("M:\(beat.count)/\(beat.noteValue)")
-            case .absoluteKey(let key):
-                tokens.append("K:\(abcKey(key))")
-            case .relativeKey:
-                tokens.append("% TMD relative key modulation")
-            }
-        }
-
-        if section.unitGroups.isEmpty {
-            return "z4"
-        }
-
-        var localKeyOffset = keyOffset
-        var sectionPosition = 0
-        var directiveIndex = 0
-        let sortedDirectives = section.directives.sorted { $0.position < $1.position }
-        for unitGroup in section.unitGroups {
-            while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
-                switch sortedDirectives[directiveIndex].kind {
-                case .relativeKey(let delta): localKeyOffset += delta
-                case .absoluteKey(let key): localKeyOffset = KeySignature(string: key).semitoneOffset
-                default: break
-                }
-                directiveIndex += 1
-            }
-            let totalMultiplier = unitGroup.length * base16thMultiplier
-            let activeUnits = unitGroup.units.filter { $0 != .tie }
-
-            if activeUnits.isEmpty {
-                // Rest
-                let multStr = totalMultiplier > 1 ? "\(totalMultiplier)" : ""
-                tokens.append("z\(multStr)")
-            } else if activeUnits.count == 1 {
-                let multStr = totalMultiplier > 1 ? "\(totalMultiplier)" : ""
-                tokens.append(formatUnit(activeUnits[0], multiplier: multStr, keyOffset: localKeyOffset))
-            } else {
-                // Tuplet: (p:q:r means p notes in the time of q)
-                let p = activeUnits.count
-                let q = unitGroup.length
-                tokens.append("(\(p):\(q)")
-                let subMult = max(1, totalMultiplier / p)
-                let subMultStr = subMult > 1 ? "\(subMult)" : ""
-                for u in activeUnits {
-                    tokens.append(formatUnit(u, multiplier: subMultStr, keyOffset: localKeyOffset))
-                }
-            }
-            sectionPosition += unitGroup.length
-        }
-
-        return tokens.joined(separator: " ")
-    }
-
-    private static func formatUnit(_ unit: TmdSwift.Unit, multiplier: String, keyOffset: Int) -> String {
-        switch unit {
-        case .note(let note):
-            let pitchName = noteToABCPitch(note, keyOffset: keyOffset)
-            return "\(pitchName)\(multiplier)"
-        case .chord(let chordName):
-            return "\"\(chordName.description)\"z\(multiplier)"
-        case .tie:
-            return "z\(multiplier)"
-        case .rest:
-            return "z\(multiplier)"
-        case .percussion(let pattern):
-            let pitches = pattern.compactMap { character -> String? in
-                switch character {
-                case "X", "x": return "^F"
-                case "T", "t": return "A"
-                case "S", "s": return "D"
-                default: return nil
-                }
-            }
-            return pitches.map { "\($0)\(multiplier)" }.joined(separator: " ")
         }
     }
 

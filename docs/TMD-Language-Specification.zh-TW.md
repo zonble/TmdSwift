@@ -309,7 +309,7 @@ metadata 保存於 `Sheet.metadata`，段落 directive 保存於 `Section.direct
 | --- | --- | --- | --- | --- | --- |
 | metadata | 部分忽略 | 映射成 `creator` | 只使用 `composer` | 只使用 `composer` | 間接跟 MIDI |
 | tempo | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
-| relative tempo | 支援計算 | 目前視為普通 tempo | 目前視為普通 tempo | 目前視為普通 tempo | 間接跟 MIDI |
+| relative tempo | 支援計算 | 支援累加後輸出 | 支援累加後輸出 | 支援累加後輸出 | 間接跟 MIDI |
 | time signature | 支援時間軸 | 支援 | 支援 | 支援 | 間接跟 MIDI |
 | absolute key | 支援 | 支援 | 支援 | 支援 | 間接跟 MIDI |
 | relative key | 會影響音高 | 部分，主要為註記／局部處理 | 部分，主要為註記／局部處理 | 部分，主要為註記／局部處理 | 間接跟 MIDI |
@@ -323,7 +323,7 @@ metadata 保存於 `Sheet.metadata`，段落 directive 保存於 `Section.direct
 
 目前較重要的差異如下：
 
-1. `relative tempo` 在非 MIDI exporter 中尚未累加目前速度。
+1. 各 exporter 已透過共同 playback timeline 累加 `relative tempo`；格式差異只剩輸出語法與無法表達的降級方式。
 2. notation exporter 尚未完整反映 directive 的 `position`。
 3. `relative key` 在 LilyPond、ABC、MusicXML 中多半以註記或局部音高處理呈現，尚未完整輸出真正的轉調語法。
 4. `paragraph.start` 目前主要由 MIDI 時間軸處理。
