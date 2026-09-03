@@ -232,19 +232,10 @@ public struct TMDLilyPondGenerator {
     // MARK: - Pitch & Duration Helpers
 
     private static func formatDuration(noteLength: Int, spanCount: Int) -> String {
-        // Approximate standard durations: 1, 2, 4, 8, 16
-        if spanCount == 1 {
+        guard spanCount > 0, noteLength > 0, noteLength.isMultiple(of: spanCount) else {
             return "\(noteLength)"
-        } else if spanCount == 2 && noteLength == 16 {
-            return "8"
-        } else if spanCount == 4 && noteLength == 16 {
-            return "4"
-        } else if spanCount == 2 && noteLength == 4 {
-            return "2"
-        } else if spanCount == 4 && noteLength == 4 {
-            return "1"
         }
-        return "\(noteLength)"
+        return "\(noteLength / spanCount)"
     }
 
     private static func noteToLilyPondPitch(_ note: Note, keyOffset: Int) -> String {
