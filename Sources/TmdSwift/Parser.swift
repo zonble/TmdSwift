@@ -726,7 +726,7 @@ private struct TokenParser {
             return .note(n)
         case .chord(let ch):
             advance()
-            return .chord(ch)
+            return .chord(ChordSymbol(string: ch))
         case .tie:
             advance()
             return .tie

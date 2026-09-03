@@ -257,7 +257,7 @@ public struct TMDMIDIGenerator {
                                 events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
                             }
                         case .chord(let chordName):
-                            let pitches = chordToMIDIPitches(chordName, keyOffset: localKeyOffset)
+                            let pitches = chordToMIDIPitches(chordName.description, keyOffset: localKeyOffset)
                             for p in pitches where (0...127).contains(p) {
                                 let noteOn = Data([0x90 | channel, UInt8(p), 88])
                                 let noteOff = Data([0x80 | channel, UInt8(p), 0])

@@ -213,8 +213,10 @@ directive 可放在 section 的音樂單位之間，位置以它前面的基本�
 [6m]
 ```
 
-中括號內的內容會原樣保存為字串（前後空白會移除），parser 不驗證和弦名稱
-或和弦是否符合調性。
+parser 會將中括號內容解析為 `ChordSymbol`。根音支援 C～B 字母或 1～7
+唱名度數，品質包含大三和弦、小三和弦、七和弦、減和弦、增和弦、掛留和弦與
+power chord；未列入內建集合的 suffix 會以 `.custom(String)` 保存，因此仍能
+表達 `C7#9` 等延伸和弦。前後空白會移除，但 parser 不驗證和弦是否符合調性。
 
 ### 7.3 延音／複製線
 
@@ -286,6 +288,7 @@ directive 可放在 section 的音樂單位之間，位置以它前面的基本�
 | --- | --- |
 | 拍號 | `Beat` |
 | 音符 | `Note` |
+| 和弦 | `ChordSymbol`（根音為 `ChordRoot`，品質為 `ChordQuality`） |
 | 音符／和弦／tie | `Unit` |
 | 連音群組 | `UnitGroup` |
 | `<n*>` 與其內容 | `Section` |

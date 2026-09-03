@@ -194,7 +194,7 @@ public struct TMDLilyPondGenerator {
             return "\(pitchName)\(duration)"
         case .chord(let chordName):
             // In LilyPond, we can output chord notes in angle brackets <c e g>
-            let pitchNames = chordToLilyPondPitches(chordName, keyOffset: keyOffset)
+            let pitchNames = chordToLilyPondPitches(chordName.description, keyOffset: keyOffset)
             if pitchNames.isEmpty {
                 return "r\(duration)"
             } else if pitchNames.count == 1 {

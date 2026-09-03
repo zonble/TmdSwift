@@ -227,7 +227,7 @@ public struct TMDMusicXMLGenerator {
                         case .note(let note):
                             m += generateNoteXML(note: note, duration: subDuration, keyOffset: localKeyOffset)
                         case .chord(let chordName):
-                            m += generateChordXML(chordName: chordName, duration: subDuration, keyOffset: localKeyOffset)
+                            m += generateChordXML(chordName: chordName.description, duration: subDuration, keyOffset: localKeyOffset)
                         case .tie:
                             break
                         case .rest:

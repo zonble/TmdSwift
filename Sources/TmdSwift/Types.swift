@@ -98,6 +98,126 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
     }
 }
 
+/// A chord root in TMD notation, either a movable-do degree or a letter root.
+public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible {
+    public var degree: ScaleDegree
+    public var accidental: Accidental
+    public var isScaleDegree: Bool
+
+    public init(degree: ScaleDegree, accidental: Accidental = .natural, isScaleDegree: Bool = false) {
+        self.degree = degree
+        self.accidental = accidental
+        self.isScaleDegree = isScaleDegree
+    }
+
+    public var description: String {
+        let value = isScaleDegree
+            ? String(degree.rawValue)
+            : ["C", "D", "E", "F", "G", "A", "B"][degree.rawValue - 1]
+        switch accidental {
+        case .natural: return value
+        case .sharp: return "\(value)'"
+        case .flat: return "\(value),"
+        }
+    }
+}
+
+/// Common chord qualities. Unrecognized suffixes are retained as `.custom`.
+public enum ChordQuality: Equatable, Hashable, Sendable {
+    case major
+    case minor
+    case dominant7
+    case major7
+    case minor7
+    case diminished
+    case halfDiminished
+    case augmented
+    case suspended
+    case power
+    case custom(String)
+}
+
+/// A typed chord symbol with a finite common-quality vocabulary and extensibility.
+public struct ChordSymbol: Equatable, Hashable, Sendable, ExpressibleByStringLiteral, CustomStringConvertible {
+    public var root: ChordRoot
+    public var quality: ChordQuality
+
+    public init(root: ChordRoot, quality: ChordQuality = .major) {
+        self.root = root
+        self.quality = quality
+    }
+
+    public init(string: String) {
+        let value = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        let chars = Array(value)
+        guard let first = chars.first else {
+            self.init(root: ChordRoot(degree: .c), quality: .custom(""))
+            return
+        }
+        let isDegree = ("1"..."7").contains(String(first))
+        let degree: ScaleDegree
+        let rootEnd: Int
+        if isDegree, let parsed = ScaleDegree(rawValue: Int(String(first))!) {
+            degree = parsed
+            rootEnd = 1
+        } else {
+            let letters: [Character: ScaleDegree] = ["C": .c, "D": .d, "E": .e, "F": .f, "G": .g, "A": .a, "B": .b]
+            guard let parsed = letters[Character(String(first).uppercased())] else {
+                self.init(root: ChordRoot(degree: .c), quality: .custom(value))
+                return
+            }
+            degree = parsed
+            rootEnd = 1
+        }
+        var accidental: Accidental = .natural
+        var suffixStart = rootEnd
+        if suffixStart < chars.count && ["'", "#", ",", "b"].contains(chars[suffixStart]) {
+            accidental = (chars[suffixStart] == "'" || chars[suffixStart] == "#") ? .sharp : .flat
+            suffixStart += 1
+        }
+        let suffix = String(chars.dropFirst(suffixStart))
+        self.init(root: ChordRoot(degree: degree, accidental: accidental, isScaleDegree: isDegree), quality: Self.quality(for: suffix))
+    }
+
+    public init(stringLiteral value: String) {
+        self.init(string: value)
+    }
+
+    public var description: String {
+        let rootText = root.description
+        let suffix = switch quality {
+        case .major: ""
+        case .minor: "m"
+        case .dominant7: "7"
+        case .major7: "maj7"
+        case .minor7: "m7"
+        case .diminished: "dim"
+        case .halfDiminished: "m7-5"
+        case .augmented: "aug"
+        case .suspended: "sus"
+        case .power: "5"
+        case .custom(let value): value
+        }
+        return rootText + suffix
+    }
+
+    private static func quality(for suffix: String) -> ChordQuality {
+        switch suffix.lowercased() {
+        case "": return .major
+        case "m": return .minor
+        case "7": return .dominant7
+        case "maj7": return .major7
+        case "m7": return .minor7
+        case "dim": return .diminished
+        case "m7-5", "ø": return .halfDiminished
+        case "aug", "+": return .augmented
+        case "sus", "sus4": return .suspended
+        case "5": return .power
+        default: return .custom(suffix)
+        }
+    }
+}
+
 /// The seven scale degrees used by TMD numbered notation.
 public enum ScaleDegree: Int, CaseIterable, Equatable, Sendable {
     case c = 1
@@ -158,7 +278,7 @@ public enum Unit: Equatable {
     /// `[6m]`).
     ///
     /// > Note: Originally represented as `UnitType::Chord` in Aguai's C++ code.
-    case chord(String)
+    case chord(ChordSymbol)
 
     /// A tie or duration extension dash (syntax `-`).
     ///

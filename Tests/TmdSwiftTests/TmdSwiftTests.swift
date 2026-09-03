@@ -378,6 +378,22 @@ import TmdABC
     #expect(KeySignature(string: "not-a-key") == KeySignature(tonic: .c))
 }
 
+@Test func testTypedChordSymbol() throws {
+    let majorSeventh: ChordSymbol = "Cmaj7"
+    #expect(majorSeventh.root == ChordRoot(degree: .c))
+    #expect(majorSeventh.quality == .major7)
+    #expect(majorSeventh.description == "Cmaj7")
+
+    let movableMinor: ChordSymbol = "6m"
+    #expect(movableMinor.root == ChordRoot(degree: .a, isScaleDegree: true))
+    #expect(movableMinor.quality == .minor)
+    #expect(movableMinor.description == "6m")
+
+    let extended = ChordSymbol(string: "C7#9")
+    #expect(extended.quality == .custom("7#9"))
+    #expect(extended.description == "C7#9")
+}
+
 @Test func testFilePathNormalizerVariants() throws {
     #expect(FilePathNormalizer.isFileURL(" file:///tmp/a%20b "))
     #expect(FilePathNormalizer.isFileURL("<file://localhost/tmp/a>"))

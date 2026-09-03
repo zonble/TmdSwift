@@ -165,7 +165,7 @@ public struct TMDABCGenerator {
             let pitchName = noteToABCPitch(note, keyOffset: keyOffset)
             return "\(pitchName)\(multiplier)"
         case .chord(let chordName):
-            return "\"\(chordName)\"z\(multiplier)"
+            return "\"\(chordName.description)\"z\(multiplier)"
         case .tie:
             return "z\(multiplier)"
         case .rest:
