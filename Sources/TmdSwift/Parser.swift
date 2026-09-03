@@ -26,9 +26,9 @@ public enum Token: Equatable {
 
     case number(Int)                 // e.g. 120, 4, 16
     case double(Double)              // e.g. 120.0
-    case node(Node)                  // e.g. 1, 1', 1,, 1^, 1_
+    case note(Note)                  // e.g. 1, 1', 1,, 1^, 1_
     case chord(String)               // e.g. [Cmaj7], [1], [6m]
-    case copy                        // -
+    case tie                         // -
     case identifier(String)          // e.g. Piano, intro, C, A'
     case eof
 }
@@ -211,7 +211,7 @@ public final class Lexer {
             return .asterisk
         case "-":
             advance()
-            return .copy
+            return .tie
         case "[":
             // Chord: [Cmaj7]
             advance() // [
@@ -229,9 +229,9 @@ public final class Lexer {
             break
         }
 
-        // Node (1~7 followed by optional ', ^, _)
+        // Note (1~7 followed by optional ', ,, ^, _)
         if c >= "1" && c <= "7" {
-            // Check if it is followed immediately by node modifiers (', ,, ^, _)
+            // Check if it is followed immediately by note modifiers (', ,, ^, _)
             // Or if it's a stand-alone digit not followed by more digits
             let next = peek(offset: 1)
             let isModifier = next == "'" || next == "," || next == "^" || next == "_"
@@ -239,27 +239,27 @@ public final class Lexer {
 
             if isModifier || !isDigit {
                 advance()
-                var node = Node()
-                node.name = Int(c.value - UnicodeScalar("0").value)
+                var note = Note()
+                note.degree = Int(c.value - UnicodeScalar("0").value)
                 while !isAtEnd {
                     guard let mod = peek() else { break }
                     if mod == "'" {
-                        node.sharpFalls = .sharp
+                        note.accidental = .sharp
                         advance()
                     } else if mod == "," {
-                        node.sharpFalls = .falls
+                        note.accidental = .flat
                         advance()
                     } else if mod == "^" {
-                        node.octave += 1
+                        note.octave += 1
                         advance()
                     } else if mod == "_" {
-                        node.octave -= 1
+                        note.octave -= 1
                         advance()
                     } else {
                         break
                     }
                 }
-                return .node(node)
+                return .note(note)
             }
         }
 
@@ -391,7 +391,7 @@ private struct TokenParser {
                     switch advance() {
                     case .identifier(let s): nameParts.append(s)
                     case .number(let n): nameParts.append(String(n))
-                    case .node(let node): nameParts.append(String(node.name))
+                    case .note(let note): nameParts.append(String(note.degree))
                     default: break
                     }
                 }
@@ -414,8 +414,8 @@ private struct TokenParser {
                 if case .identifier(let s) = current {
                     key = s
                     advance()
-                } else if case .node(let node) = current {
-                    key = String(node.name)
+                } else if case .note(let note) = current {
+                    key = String(note.degree)
                     advance()
                 }
                 sheet.keySignature = key
@@ -425,16 +425,16 @@ private struct TokenParser {
                 if case .number(let c) = current {
                     sheet.beat.count = c
                     advance()
-                } else if case .node(let node) = current {
-                    sheet.beat.count = node.name
+                } else if case .note(let note) = current {
+                    sheet.beat.count = note.degree
                     advance()
                 }
                 match(.slash)
                 if case .number(let n) = current {
-                    sheet.beat.node = n
+                    sheet.beat.noteValue = n
                     advance()
-                } else if case .node(let node) = current {
-                    sheet.beat.node = node.name
+                } else if case .note(let note) = current {
+                    sheet.beat.noteValue = note.degree
                     advance()
                 }
                 match(.closeAngle)
@@ -452,7 +452,8 @@ private struct TokenParser {
                         switch advance() {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
-                        case .copy: name += "-"
+                        case .note(let note): name += String(note.degree)
+                        case .tie: name += "-"
                         default: break
                         }
                     }
@@ -465,7 +466,8 @@ private struct TokenParser {
                         switch advance() {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
-                        case .copy: name += "-"
+                        case .note(let note): name += String(note.degree)
+                        case .tie: name += "-"
                         default: break
                         }
                     }
@@ -517,8 +519,8 @@ private struct TokenParser {
             if case .number(let n) = current {
                 start = n
                 advance()
-            } else if case .node(let node) = current {
-                start = node.name
+            } else if case .note(let note) = current {
+                start = note.degree
                 advance()
             }
             match(.pipe)
@@ -531,12 +533,12 @@ private struct TokenParser {
             skipPipes()
             if current == .openAngle {
                 advance()
-                var nodeLength = 4
+                var noteLength = 4
                 if case .number(let n) = current {
-                    nodeLength = n
+                    noteLength = n
                     advance()
-                } else if case .node(let node) = current {
-                    nodeLength = node.name
+                } else if case .note(let note) = current {
+                    noteLength = note.degree
                     advance()
                 }
                 match(.asterisk)
@@ -566,7 +568,7 @@ private struct TokenParser {
                         var length = 1
                         if match(.percentOpenParen) {
                             length = 0
-                            while current == .copy {
+                            while current == .tie {
                                 length += 1
                                 advance()
                             }
@@ -579,7 +581,7 @@ private struct TokenParser {
                         advance()
                     }
                 }
-                sections.append(Section(nodeLength: nodeLength, unitGroups: unitGroups))
+                sections.append(Section(noteLength: noteLength, unitGroups: unitGroups))
             } else {
                 advance()
             }
@@ -592,15 +594,15 @@ private struct TokenParser {
     private mutating func parseUnit() -> Unit? {
         skipPipes()
         switch current {
-        case .node(let n):
+        case .note(let n):
             advance()
-            return .node(n)
+            return .note(n)
         case .chord(let ch):
             advance()
             return .chord(ch)
-        case .copy:
+        case .tie:
             advance()
-            return .copy
+            return .tie
         default:
             return nil
         }

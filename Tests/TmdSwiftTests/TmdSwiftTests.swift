@@ -29,7 +29,7 @@ import Foundation
     #expect(sheet.speed == 120.0)
     #expect(sheet.keySignature == "C")
     #expect(sheet.beat.count == 4)
-    #expect(sheet.beat.node == 4)
+    #expect(sheet.beat.noteValue == 4)
 
     #expect(sheet.paragraphs.count == 1)
     let paragraph = sheet.paragraphs[0]
@@ -39,23 +39,23 @@ import Foundation
     #expect(paragraph.sections.count == 1)
 
     let section = paragraph.sections[0]
-    #expect(section.nodeLength == 4)
+    #expect(section.noteLength == 4)
     #expect(section.unitGroups.count == 7)
 
     // 1 2 3 4
-    #expect(section.unitGroups[0].units[0] == .node(Node(sharpFalls: .normal, name: 1, octave: 0)))
-    #expect(section.unitGroups[1].units[0] == .node(Node(sharpFalls: .normal, name: 2, octave: 0)))
-    #expect(section.unitGroups[2].units[0] == .node(Node(sharpFalls: .normal, name: 3, octave: 0)))
-    #expect(section.unitGroups[3].units[0] == .node(Node(sharpFalls: .normal, name: 4, octave: 0)))
+    #expect(section.unitGroups[0].units[0] == .note(Note(accidental: .natural, degree: 1, octave: 0)))
+    #expect(section.unitGroups[1].units[0] == .note(Note(accidental: .natural, degree: 2, octave: 0)))
+    #expect(section.unitGroups[2].units[0] == .note(Note(accidental: .natural, degree: 3, octave: 0)))
+    #expect(section.unitGroups[3].units[0] == .note(Note(accidental: .natural, degree: 4, octave: 0)))
 
     // (1' 2, 3^ 4_)%(--)
     let group5 = section.unitGroups[4]
     #expect(group5.length == 2)
     #expect(group5.units.count == 4)
-    #expect(group5.units[0] == .node(Node(sharpFalls: .sharp, name: 1, octave: 0)))
-    #expect(group5.units[1] == .node(Node(sharpFalls: .falls, name: 2, octave: 0)))
-    #expect(group5.units[2] == .node(Node(sharpFalls: .normal, name: 3, octave: 1)))
-    #expect(group5.units[3] == .node(Node(sharpFalls: .normal, name: 4, octave: -1)))
+    #expect(group5.units[0] == .note(Note(accidental: .sharp, degree: 1, octave: 0)))
+    #expect(group5.units[1] == .note(Note(accidental: .flat, degree: 2, octave: 0)))
+    #expect(group5.units[2] == .note(Note(accidental: .natural, degree: 3, octave: 1)))
+    #expect(group5.units[3] == .note(Note(accidental: .natural, degree: 4, octave: -1)))
 
     // [Cmaj7]
     let group6 = section.unitGroups[5]
@@ -63,7 +63,7 @@ import Foundation
 
     // -
     let group7 = section.unitGroups[6]
-    #expect(group7.units[0] == .copy)
+    #expect(group7.units[0] == .tie)
 
     // Orders
     #expect(sheet.orders.count == 3)
@@ -81,7 +81,7 @@ import Foundation
     #expect(sheet?.speed == 90.0)
     #expect(sheet?.keySignature == "G")
     #expect(sheet?.beat.count == 3)
-    #expect(sheet?.beat.node == 4)
+    #expect(sheet?.beat.noteValue == 4)
 }
 
 @Test func testTokenize() throws {
@@ -97,9 +97,9 @@ import Foundation
         .keySignaturePrefix,
         .identifier("C"),
         .openAngle,
-        .node(Node(sharpFalls: .normal, name: 4, octave: 0)),
+        .note(Note(accidental: .natural, degree: 4, octave: 0)),
         .slash,
-        .node(Node(sharpFalls: .normal, name: 4, octave: 0)),
+        .note(Note(accidental: .natural, degree: 4, octave: 0)),
         .closeAngle,
         .arrowEnd,
         .eof
@@ -118,7 +118,7 @@ import Foundation
     #expect(sheet?.name == "三天三夜")
     #expect(sheet?.speed == 133.0)
     #expect(sheet?.beat.count == 4)
-    #expect(sheet?.beat.node == 4)
+    #expect(sheet?.beat.noteValue == 4)
     #expect(sheet?.paragraphs.count == 10)
     #expect(sheet?.orders.count == 13)
 }
