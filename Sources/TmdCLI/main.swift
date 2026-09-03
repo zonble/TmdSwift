@@ -46,11 +46,7 @@ struct TmdCLICommand: ParsableCommand {
         print("TmdSwift v\(TmdVersion.current) - In memory of Chen, Chih-Han / aguai (阿怪, 1974–2019).")
         let sheet: Sheet
         do {
-            guard let parsed = try TmdParser.parse(filePathOrURL: inputPath) else {
-                print("Error: Failed to parse TMD file at \(inputPath)")
-                throw ExitCode.failure
-            }
-            sheet = parsed
+            sheet = try TmdParser.parseThrowing(filePathOrURL: inputPath)
         } catch {
             print("Error: Could not read or decode file at \(inputPath): \(error.localizedDescription)")
             throw ExitCode.failure

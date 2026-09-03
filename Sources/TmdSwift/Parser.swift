@@ -3,7 +3,7 @@ import TmdUtils
 
 // MARK: - Token Definitions
 
-public enum Token: Equatable {
+public enum Token: Equatable, Sendable {
     case scoreHeader                 // ::SCORE::
     case doubleAsterisk              // **
     case speedPrefix                 // !=
@@ -37,6 +37,42 @@ public enum Token: Equatable {
     case tie                         // -
     case identifier(String)          // e.g. Piano, intro, C, A'
     case eof
+}
+
+/// A source position measured in both scalar offset and human-readable line/column.
+public struct SourcePosition: Equatable, Sendable {
+    public let offset: Int
+    public let line: Int
+    public let column: Int
+}
+
+/// The source span occupied by a token.
+public struct SourceRange: Equatable, Sendable {
+    public let start: SourcePosition
+    public let length: Int
+
+    public var endOffset: Int { start.offset + length }
+}
+
+/// A token together with its source text and location.
+public struct LexedToken: Equatable {
+    public let token: Token
+    public let text: String
+    public let range: SourceRange
+}
+
+/// A syntax error reported by the throwing parser API.
+public struct TMDParseError: Error, Equatable, CustomStringConvertible, LocalizedError {
+    public let message: String
+    public let token: Token
+    public let text: String
+    public let range: SourceRange
+
+    public var errorDescription: String? { description }
+
+    public var description: String {
+        "\(message) at \(range.start.line):\(range.start.column): `\(text)`"
+    }
 }
 
 // MARK: - Lexer
@@ -98,6 +134,27 @@ public final class Lexer {
             if token == .eof {
                 break
             }
+        }
+        return tokens
+    }
+
+    /// Tokenizes the source while retaining each token's source range.
+    public func tokenizeWithRanges() -> [LexedToken] {
+        var tokens: [LexedToken] = []
+        while true {
+            skipWhitespace()
+            let start = index
+            let token = nextToken()
+            let position = SourcePosition(
+                offset: start,
+                line: scalars[..<start].reduce(into: 1) { line, scalar in
+                    if scalar == "\n" { line += 1 }
+                },
+                column: scalars[..<start].reversed().prefix { $0 != "\n" }.count + 1
+            )
+            let text = String(scalars[start..<index].map { Character(String($0)) })
+            tokens.append(LexedToken(token: token, text: text, range: SourceRange(start: position, length: index - start)))
+            if token == .eof { break }
         }
         return tokens
     }
@@ -385,6 +442,52 @@ public struct TmdParser {
         return parser.parseSheet()
     }
 
+    /// Parses a TMD score and reports the offending token when syntax is invalid.
+    public static func parseThrowing(string: String) throws -> Sheet {
+        let lexedTokens = Lexer(string: string).tokenizeWithRanges()
+        var parser = TokenParser(tokens: lexedTokens.map(\.token))
+        guard let sheet = parser.parseSheet() else {
+            let index = diagnosticIndex(parser.failureIndex ?? parser.position, tokenCount: lexedTokens.count)
+            let offending = lexedTokens[index]
+            throw TMDParseError(message: "Unexpected token", token: offending.token, text: offending.text, range: offending.range)
+        }
+        if let failureIndex = parser.failureIndex {
+            let index = diagnosticIndex(failureIndex, tokenCount: lexedTokens.count)
+            let offending = lexedTokens[index]
+            throw TMDParseError(message: "Unexpected token", token: offending.token, text: offending.text, range: offending.range)
+        }
+        return sheet
+    }
+
+    private static func diagnosticIndex(_ index: Int, tokenCount: Int) -> Int {
+        guard tokenCount > 1 else { return 0 }
+        return min(index == tokenCount - 1 ? index - 1 : index, tokenCount - 1)
+    }
+
+    /// Parses encoded data and reports decoding or syntax failures.
+    public static func parseThrowing(data: Data) throws -> Sheet {
+        guard let result = TextEncodingDetector.detectAndDecode(data) else {
+            throw TMDParseError(
+                message: "Unable to decode source",
+                token: .eof,
+                text: "",
+                range: SourceRange(start: SourcePosition(offset: 0, line: 1, column: 1), length: 0)
+            )
+        }
+        return try parseThrowing(string: result.content)
+    }
+
+    /// Parses a file URL and reports syntax failures with source locations.
+    public static func parseThrowing(url: URL) throws -> Sheet {
+        try parseThrowing(data: Data(contentsOf: url))
+    }
+
+    /// Parses a path or `file://` URL and reports syntax failures with source locations.
+    public static func parseThrowing(filePathOrURL: String) throws -> Sheet {
+        let cleanPath = FilePathNormalizer.fileURLToPath(filePathOrURL)
+        return try parseThrowing(url: URL(fileURLWithPath: cleanPath))
+    }
+
     /// Parses a TMD score from raw byte data, automatically detecting character encoding (UTF-8, Big5, GB18030, etc.).
     public static func parse(data: Data) -> Sheet? {
         guard let result = TextEncodingDetector.detectAndDecode(data) else {
@@ -410,6 +513,9 @@ public struct TmdParser {
 private struct TokenParser {
     private let tokens: [Token]
     private var pos: Int = 0
+    private(set) var failureIndex: Int?
+
+    var position: Int { pos }
 
     init(tokens: [Token]) {
         self.tokens = tokens
@@ -448,6 +554,7 @@ private struct TokenParser {
 
     mutating func parseSheet() -> Sheet? {
         guard match(.scoreHeader) else {
+            failureIndex = pos
             return nil
         }
 
@@ -586,7 +693,10 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.colon) else { return nil }
+        guard match(.colon) else {
+            failureIndex = pos
+            return nil
+        }
 
         var instrument = ""
         if case .identifier(let s) = current {
@@ -594,7 +704,10 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.at) else { return nil }
+        guard match(.at) else {
+            failureIndex = pos
+            return nil
+        }
 
         var start = 0
         var executionTime: String?
@@ -627,7 +740,10 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.openBrace) else { return nil }
+        guard match(.openBrace) else {
+            failureIndex = pos
+            return nil
+        }
 
         if case .programText(let body) = current {
             advance()

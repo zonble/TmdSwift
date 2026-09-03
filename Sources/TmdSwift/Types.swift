@@ -294,7 +294,7 @@ public enum PitchMapping {
 /// A musical note containing scale degree, accidental, and octave displacement.
 ///
 /// > Note: Originally named `Node` in Aguai's C++ code (likely a typo for `Note`).
-public struct Note: Equatable {
+public struct Note: Equatable, Sendable {
     /// Accidental of the note.
     ///
     /// > Note: Originally named `sharpFalls` in Aguai's C++ code.

@@ -112,6 +112,38 @@ import TmdABC
     ])
 }
 
+@Test func testTokenRanges() throws {
+    let tokens = Lexer(string: "::SCORE::\n** Song **").tokenizeWithRanges()
+    #expect(tokens[0].text == "::SCORE::")
+    #expect(tokens[0].range.start.line == 1)
+    #expect(tokens[0].range.start.column == 1)
+    #expect(tokens[1].text == "**")
+    #expect(tokens[1].range.start.line == 2)
+    #expect(tokens[1].range.start.column == 1)
+}
+
+@Test func testThrowingParserReportsOffendingToken() throws {
+    do {
+        _ = try TmdParser.parseThrowing(string: "not-a-score")
+        Issue.record("Expected a parse error")
+    } catch let error as TMDParseError {
+        #expect(error.text == "not-a-score")
+        #expect(error.range.start.line == 1)
+        #expect(error.range.start.column == 1)
+        #expect(error.description.contains("not-a-score"))
+    }
+}
+
+@Test func testThrowingParserRejectsMalformedParagraph() throws {
+    do {
+        _ = try TmdParser.parseThrowing(string: "::SCORE::\nintro")
+        Issue.record("Expected a parse error")
+    } catch let error as TMDParseError {
+        #expect(error.text == "intro")
+        #expect(error.range.start.line == 2)
+    }
+}
+
 @Test func testParseSampleFile() throws {
     let sampleURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
