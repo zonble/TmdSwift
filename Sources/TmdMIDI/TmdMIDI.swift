@@ -77,7 +77,15 @@ public struct TMDMIDIGenerator {
                 let step = max(1, duration / UInt32(max(1, pattern.count)))
                 for (index, character) in pattern.enumerated() {
                     if let pitch = percussionMIDIPitch(for: character) {
-                        appendNote(&events, start: start + UInt32(index) * step, duration: step, channel: 9, pitch: pitch, velocity: 96)
+                        let velocity: UInt8 = switch character {
+                        case "D", "d", "B", "b": 118 // Strong Kick
+                        case "C", "c": 115           // Exploding Crash Cymbal
+                        case "S", "s": 105           // Crisp Snare
+                        case "T", "t": 100           // Tom-toms
+                        case "O", "o": 90            // Open Hi-Hat
+                        default: 78                  // Background Closed Hi-Hat
+                        }
+                        appendNote(&events, start: start + UInt32(index) * step, duration: step, channel: 9, pitch: pitch, velocity: velocity)
                     }
                 }
             case .rest:
