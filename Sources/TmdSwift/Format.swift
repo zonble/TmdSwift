@@ -99,15 +99,15 @@ extension Unit {
     public func format() -> String {
         switch self {
         case .note(let n):
-            return n.format()
+            n.format()
         case .chord(let ch):
-            return "[\(ch)]"
+            "[\(ch)]"
         case .tie:
-            return "-"
+            "-"
         case .rest:
-            return "0"
+            "0"
         case .percussion(let pattern):
-            return pattern
+            pattern
         }
     }
 }
@@ -161,17 +161,17 @@ extension Section {
 
 extension SectionDirective {
     public func format() -> String {
-        switch kind {
+        return switch kind {
         case .tempo(let value):
-            return "{!=\(value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value))}"
+            "{!=\(value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value))}"
         case .relativeTempo(let value):
-            return "{!+\(value)}"
+            "{!+\(value)}"
         case .absoluteKey(let key):
-            return "{?=\(key)}"
+            "{?=\(key)}"
         case .relativeKey(let value):
-            return "{?\(value >= 0 ? "+\(value)" : String(value))}"
+            "{?\(value >= 0 ? "+\(value)" : String(value))}"
         case .timeSignature(let beat):
-            return "{<\(beat.count)/\(beat.noteValue)>}"
+            "{<\(beat.count)/\(beat.noteValue)>}"
         }
     }
 }
@@ -204,11 +204,11 @@ extension Order {
     public func format() -> String {
         switch self {
         case .name(let n):
-            return n
+            n
         case .relative(let rel):
-            return "{?\(rel)}"
+            "{?\(rel)}"
         case .absolute(let abs):
-            return "{?=\(abs)}"
+            "{?=\(abs)}"
         }
     }
 }

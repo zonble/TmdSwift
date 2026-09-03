@@ -313,10 +313,6 @@ public struct TMDMIDIGenerator {
         return chord.quality.semitoneIntervals.map { rootPitch + $0 }
     }
 
-    public static func parseKeySignatureSemitones(_ key: String) -> Int {
-        KeySignature(string: key).semitoneOffset
-    }
-
     public static func generalMidiProgram(for instrument: String) -> UInt8 {
         let lower = instrument.lowercased()
         let mappings: [(terms: [String], program: UInt8)] = [
