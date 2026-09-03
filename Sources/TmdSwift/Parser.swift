@@ -689,7 +689,8 @@ private struct TokenParser {
                 if let paragraph = parseParagraph() {
                     paragraphs.append(paragraph)
                 } else {
-                    advance()
+                    failureIndex = pos
+                    return nil
                 }
             }
         }
@@ -837,7 +838,8 @@ private struct TokenParser {
                 }
                 sections.append(Section(noteLength: noteLength, unitGroups: unitGroups, directives: directives))
             } else {
-                advance()
+                failureIndex = pos
+                return nil
             }
         }
         match(.closeBrace)

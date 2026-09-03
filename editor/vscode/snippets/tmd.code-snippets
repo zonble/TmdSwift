@@ -1,0 +1,52 @@
+{
+  "Score Boilerplate": {
+    "prefix": "score",
+    "body": [
+      "::SCORE::",
+      "** ${1:Song Title} **",
+      "!= ${2:120}",
+      "?= ${3:C}",
+      "<${4:4/4}>",
+      "",
+      "${5:intro}:${6:Piano}@|0|{",
+      "    <4*>",
+      "    ${7:1 2 3 4}",
+      "}",
+      "",
+      "-> ${5:intro} ->#"
+    ],
+    "description": "Create a minimal TMD score structure"
+  },
+  "Paragraph Track": {
+    "prefix": "para",
+    "body": [
+      "${1:sectionName}:${2:Piano}@|${3:0}|{",
+      "    <${4:4*}>",
+      "    ${5:1 2 3 4}",
+      "}"
+    ],
+    "description": "Create a new instrument paragraph"
+  },
+  "Section Unit": {
+    "prefix": "sec",
+    "body": [
+      "<${1:4*}>",
+      "${2:1 2 3 4}"
+    ],
+    "description": "Create a new section subdivision"
+  },
+  "Tuplet": {
+    "prefix": "tup",
+    "body": [
+      "(${1:1 2 3})%(${2:--})"
+    ],
+    "description": "Create a tuplet rhythm group"
+  },
+  "Chord Unit": {
+    "prefix": "ch",
+    "body": [
+      "[${1:Cmaj7}]"
+    ],
+    "description": "Insert a chord symbol"
+  }
+}

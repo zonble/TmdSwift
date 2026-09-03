@@ -1,0 +1,49 @@
+{
+  "name": "tmd-vscode",
+  "displayName": "TMD Language Support",
+  "description": "Syntax highlighting, snippets, and language configuration for TMD (Text Music Description)",
+  "version": "0.1.0",
+  "publisher": "zonble",
+  "author": "zonble",
+  "license": "MIT",
+  "homepage": "https://github.com/zonble/TmdSwift",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zonble/TmdSwift.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tmd",
+        "aliases": [
+          "TMD",
+          "tmd"
+        ],
+        "extensions": [
+          ".tmd"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tmd",
+        "scopeName": "source.tmd",
+        "path": "./syntaxes/tmd.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "tmd",
+        "path": "./snippets/tmd.code-snippets"
+      }
+    ]
+  }
+}
