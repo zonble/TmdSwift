@@ -118,8 +118,7 @@ public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible 
 
     /// Chromatic offset of this root within the octave for pitch exporters.
     public var semitoneOffset: Int {
-        let natural = [0, 2, 4, 5, 7, 9, 11][degree.rawValue - 1]
-        return natural + accidental.semitoneOffset
+        degree.semitoneOffset + accidental.semitoneOffset
     }
 }
 
@@ -256,6 +255,11 @@ public enum ScaleDegree: Int, CaseIterable, Equatable, Sendable {
         case .a: return "A"
         case .b: return "B"
         }
+    }
+
+    /// Natural chromatic offset of this degree within a major scale.
+    public var semitoneOffset: Int {
+        [0, 2, 4, 5, 7, 9, 11][rawValue - 1]
     }
 
     /// Creates a scale degree from a case-insensitive letter name.

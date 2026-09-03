@@ -300,11 +300,7 @@ public struct TMDMIDIGenerator {
 
     /// Converts scale degree (1~7) + accidental + octave into MIDI pitch (Middle C = 60).
     public static func noteToMIDIPitch(_ note: Note, keyOffset: Int) -> Int {
-        let degree = note.degree.rawValue
-        guard (1...7).contains(degree) else { return -1 }
-        // Major scale degree semitone offsets from root: 1->0, 2->2, 3->4, 4->5, 5->7, 6->9, 7->11
-        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var pitch = 60 + keyOffset + scaleSteps[degree - 1]
+        var pitch = 60 + keyOffset + note.degree.semitoneOffset
 
         switch note.accidental {
         case .sharp: pitch += 1
@@ -317,12 +313,7 @@ public struct TMDMIDIGenerator {
     }
 
     private static func percussionMIDIPitch(for character: Character) -> Int? {
-        switch character {
-        case "X", "x": return 42 // closed hi-hat
-        case "T", "t": return 45 // low tom
-        case "S", "s": return 38 // acoustic snare
-        default: return nil
-        }
+        ["X": 42, "x": 42, "T": 45, "t": 45, "S": 38, "s": 38][character]
     }
 
     /// Resolves chord names (degree numbers like `1`, `6m`, `4`, `5`, or chord names like `Cmaj7`).
@@ -343,29 +334,24 @@ public struct TMDMIDIGenerator {
     }
 
     public static func parseKeySignatureSemitones(_ key: String) -> Int {
-        let trimmed = key.trimmingCharacters(in: .whitespaces)
-        guard let first = trimmed.first else { return 0 }
-        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
-        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
-
-        if trimmed.contains("'") || trimmed.contains("#") {
-            semi += 1
-        } else if trimmed.contains(",") || trimmed.contains("b") {
-            semi -= 1
-        }
-        return semi
+        let signature = KeySignature(string: key)
+        return signature.tonic.semitoneOffset + signature.accidental.semitoneOffset
     }
 
     public static func generalMidiProgram(for instrument: String) -> UInt8 {
         let lower = instrument.lowercased()
-        if lower.contains("piano") { return 0 }       // Acoustic Grand Piano
-        if lower.contains("guitar") { return 25 }     // Steel Acoustic Guitar
-        if lower.contains("chord") { return 4 }       // Electric Piano 1
-        if lower.contains("bass") { return 33 }       // Electric Bass (finger)
-        if lower.contains("drum") || lower.contains("groove") { return 118 } // Synth Drum
-        if lower.contains("chrous") || lower.contains("chorus") || lower.contains("voice") { return 52 } // Choir Aahs
-        if lower.contains("string") { return 48 }     // String Ensemble 1
-        return 0
+        let mappings: [(terms: [String], program: UInt8)] = [
+            (["piano"], 0),
+            (["guitar"], 25),
+            (["chord"], 4),
+            (["bass"], 33),
+            (["drum", "groove"], 118),
+            (["chrous", "chorus", "voice"], 52),
+            (["string"], 48)
+        ]
+        return mappings.first { mapping in
+            mapping.terms.contains { lower.contains($0) }
+        }?.program ?? 0
     }
 
     // MARK: - MIDI Binary Encoding
