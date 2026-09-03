@@ -16,10 +16,12 @@ public struct TMDMIDIGenerator {
             sheet: sheet, timeline: timeline, ticksPerQuarter: ticksPerQuarter
         ))]
         for (instrumentIndex, instrument) in distinctInstruments.enumerated() {
-            let channel = UInt8(instrumentIndex % 16)
+            let midiInstrument = MIDIInstrument.resolve(instrument)
+            let channel = midiInstrument.isPercussion ? 9 : UInt8(instrumentIndex % 9)
             let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
             trackData.append(TMDMIDIEncoder.encodeTrack(events: instrumentEvents(
-                timeline: timeline, instrument: instrument, channel: channel, ticksPerQuarter: ticksPerQuarter
+                timeline: timeline, instrument: instrument, midiInstrument: midiInstrument,
+                channel: channel, ticksPerQuarter: ticksPerQuarter
             )))
         }
         return TMDMIDIEncoder.encodeFile(tracks: trackData, ticksPerQuarter: ticksPerQuarter)
@@ -42,11 +44,17 @@ public struct TMDMIDIGenerator {
         return initial + directives
     }
 
-    private static func instrumentEvents(timeline: PlaybackTimeline, instrument: String, channel: UInt8, ticksPerQuarter: UInt16) -> [MIDIEvent] {
-        var events = [
-            MIDIEvent(tick: 0, message: .trackName(instrument)),
-            MIDIEvent(tick: 0, message: .programChange(channel: channel, program: generalMidiProgram(for: instrument)))
-        ]
+    private static func instrumentEvents(
+        timeline: PlaybackTimeline,
+        instrument: String,
+        midiInstrument: MIDIInstrument,
+        channel: UInt8,
+        ticksPerQuarter: UInt16
+    ) -> [MIDIEvent] {
+        var events = [MIDIEvent(tick: 0, message: .trackName(instrument))]
+        if !midiInstrument.isPercussion {
+            events.append(MIDIEvent(tick: 0, message: .programChange(channel: channel, program: midiInstrument.program)))
+        }
         for event in timeline.events {
             let start = midiTick(event.position, ticksPerQuarter: ticksPerQuarter)
             let duration = max(1, midiTick(event.duration, ticksPerQuarter: ticksPerQuarter))
@@ -119,19 +127,7 @@ public struct TMDMIDIGenerator {
     }
 
     public static func generalMidiProgram(for instrument: String) -> UInt8 {
-        let lower = instrument.lowercased()
-        let mappings: [(terms: [String], program: UInt8)] = [
-            (["piano"], 0),
-            (["guitar"], 25),
-            (["chord"], 4),
-            (["bass"], 33),
-            (["drum", "groove"], 118),
-            (["chrous", "chorus", "voice"], 52),
-            (["string"], 48)
-        ]
-        return mappings.first { mapping in
-            mapping.terms.contains { lower.contains($0) }
-        }?.program ?? 0
+        MIDIInstrument.resolve(instrument).program
     }
 
 }
