@@ -197,7 +197,7 @@ public struct TMDMIDIGenerator {
         var maxTicks: UInt32 = 0
         for p in matchingParagraphs {
             let beatsPerMeasure = Double(sheet.beat.count)
-            let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(sheet.beat.noteValue)) * beatsPerMeasure)
+            let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(max(1, sheet.beat.noteValue))) * beatsPerMeasure)
             var pTicks = UInt32(max(0, p.start)) * ticksPerMeasure
             for sec in p.sections {
                 let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(sec.noteLength))
@@ -222,7 +222,7 @@ public struct TMDMIDIGenerator {
     ) -> (events: [MIDIEvent], duration: UInt32) {
         var events: [MIDIEvent] = []
         let beatsPerMeasure = Double(sheet.beat.count)
-        let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(sheet.beat.noteValue)) * beatsPerMeasure)
+        let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(max(1, sheet.beat.noteValue))) * beatsPerMeasure)
 
         var trackTick = baseTick + (UInt32(max(0, paragraph.start)) * ticksPerMeasure)
         let startTick = trackTick

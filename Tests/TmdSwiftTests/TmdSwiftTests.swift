@@ -352,3 +352,82 @@ import TmdABC
     #expect(sheet?.format().contains("\"\"\"") == true)
     #expect(sheet?.format().contains("cue black") == true)
 }
+
+@Test func testFilePathNormalizerVariants() throws {
+    #expect(FilePathNormalizer.isFileURL(" file:///tmp/a%20b "))
+    #expect(FilePathNormalizer.isFileURL("<file://localhost/tmp/a>"))
+    #expect(!FilePathNormalizer.isFileURL("/tmp/a"))
+    #expect(FilePathNormalizer.fileURLToPath("file:///tmp/a%20b") == "/tmp/a b")
+    #expect(FilePathNormalizer.fileURLToPath("file://localhost/tmp/a") == "/tmp/a")
+    #expect(FilePathNormalizer.fileURLToPath("file:C:/Users/test") == "C:/Users/test")
+    #expect(FilePathNormalizer.fileURLToPath("/tmp/plain") == "/tmp/plain")
+
+    let anchor = FilePathNormalizer.parseLocation(from: "score.tmd#L42C10")
+    #expect(anchor.filePath == "score.tmd")
+    #expect(anchor.line == 42)
+    #expect(anchor.column == 10)
+
+    let colonAnchor = FilePathNormalizer.parseLocation(from: "score.tmd:42:10")
+    #expect(colonAnchor.filePath == "score.tmd")
+    #expect(colonAnchor.line == 42)
+    #expect(colonAnchor.column == 10)
+
+    let urlAnchor = FilePathNormalizer.parseLocation(from: "file:///tmp/score.tmd#L7")
+    #expect(urlAnchor.filePath == "/tmp/score.tmd")
+    #expect(urlAnchor.line == 7)
+    #expect(urlAnchor.column == nil)
+
+    let windows = FilePathNormalizer.parseLocation(from: "C:/score.tmd:12:4")
+    #expect(windows.filePath == "C:/score.tmd")
+    #expect(windows.line == 12)
+    #expect(windows.column == 4)
+
+    let empty = FilePathNormalizer.parseLocation(from: "   ")
+    #expect(empty.filePath.isEmpty)
+    #expect(empty.line == nil)
+}
+
+@Test func testTextEncodingDetectorVariants() throws {
+    let empty = TextEncodingDetector.detectAndDecode(Data())
+    #expect(empty?.content == "")
+    #expect(TextEncodingDetector.displayName(for: .utf8) == "UTF-8")
+    #expect(TextEncodingDetector.displayName(for: .big5) == "Big5")
+    #expect(TextEncodingDetector.displayName(for: .gb18030) == "GB18030")
+    #expect(TextEncodingDetector.displayName(for: .shiftJISCustom) == "Shift-JIS")
+    #expect(TextEncodingDetector.displayName(for: .eucJPCustom) == "EUC-JP")
+
+    let utf8BOM = Data([0xEF, 0xBB, 0xBF]) + Data("測試".utf8)
+    #expect(TextEncodingDetector.detectAndDecode(utf8BOM)?.content == "測試")
+
+    let utf16LE = Data([0xFF, 0xFE]) + ("測試".data(using: .utf16LittleEndian) ?? Data())
+    #expect(TextEncodingDetector.detectAndDecode(utf16LE)?.content == "測試")
+    let utf16BE = Data([0xFE, 0xFF]) + ("測試".data(using: .utf16BigEndian) ?? Data())
+    #expect(TextEncodingDetector.detectAndDecode(utf16BE)?.content == "測試")
+
+    let utf32LE = Data([0xFF, 0xFE, 0x00, 0x00]) + ("TMD".data(using: .utf32LittleEndian) ?? Data())
+    #expect(TextEncodingDetector.detectAndDecode(utf32LE)?.content == "TMD")
+}
+
+@Test func testExporterFallbackBranches() throws {
+    let sheet = Sheet(
+        name: "Fallback",
+        speed: 0,
+        keySignature: "?",
+        beat: Beat(count: 0, noteValue: 0),
+        paragraphs: [Paragraph(name: "A", instrument: "Unknown", sections: [
+            Section(noteLength: 8, unitGroups: [
+                UnitGroup(units: [.note(Note(degree: 0)), .chord("???")], length: 2),
+                UnitGroup(units: [], length: 1)
+            ])
+        ])],
+        orders: [.name("A"), .name("Missing")]
+    )
+
+    #expect(!TMDMIDIGenerator.generateMIDI(from: sheet).isEmpty)
+    #expect(TMDMIDIGenerator.noteToMIDIPitch(Note(degree: 0), keyOffset: 0) == -1)
+    #expect(!TMDMIDIGenerator.chordToMIDIPitches("???", keyOffset: 0).isEmpty)
+    #expect(TMDMIDIGenerator.generalMidiProgram(for: "Unknown") == 0)
+    #expect(TMDMusicXMLGenerator.generateMusicXML(from: sheet).contains("score-partwise"))
+    #expect(TMDLilyPondGenerator.generateLilyPond(from: sheet).contains("\\score"))
+    #expect(TMDABCGenerator.generateABC(from: sheet).contains("T:Fallback"))
+}
