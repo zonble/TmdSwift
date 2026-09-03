@@ -58,6 +58,9 @@ swift run tmd sample/三天三夜.tmd -l score.ly
 
 # 5. Render directly to PDF using the local lilypond compiler
 swift run tmd sample/三天三夜.tmd --pdf-output score.pdf
+
+# 6. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
+swift run tmd sample/三天三夜.tmd -w score.wav
 ```
 
 ## Swift Package Usage
@@ -115,6 +118,8 @@ let lilyPond = TMDLilyPondGenerator.generateLilyPond(from: sheet)
 - **`TmdMIDI`**: Binary SMF Type 1 multi-track MIDI file generator.
 - **`TmdMusicXML`**: W3C MusicXML 4.0 Partwise generator.
 - **`TmdLilyPond`**: LilyPond engraving source generator.
+- **`TmdAudio`**: Offline WAV audio synthesizer using CoreAudio / DLS SoundFont.
+- **`TmdUtils`**: Cross-platform file path normalizer and character encoding detector.
 - **`TmdCLI`**: Command-line interface executable (`tmd`).
 
 ## License

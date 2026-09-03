@@ -4,6 +4,7 @@ import TmdSwift
 import TmdMIDI
 import TmdMusicXML
 import TmdLilyPond
+import TmdAudio
 
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -28,6 +29,12 @@ struct TmdCLICommand: ParsableCommand {
 
     @Option(name: [.long], help: "Render PDF score using lilypond compiler.")
     var pdfOutput: String?
+
+    @Option(name: [.customShort("w"), .long], help: "Render to WAV audio file at the specified path.")
+    var wavOutput: String?
+
+    @Option(name: [.long], help: "Optional SoundFont (.sf2) or DLS soundbank path for audio rendering.")
+    var soundfont: String?
 
     func run() throws {
         let sheet: Sheet
@@ -113,6 +120,20 @@ struct TmdCLICommand: ParsableCommand {
                 print("Could not invoke lilypond: \(error.localizedDescription). You can export the .ly file directly using `-l`.")
             }
             try? FileManager.default.removeItem(at: tempLyURL)
+        }
+
+        // Render to WAV audio if requested
+        if let wavPath = wavOutput {
+            let soundBankURL = soundfont != nil ? URL(fileURLWithPath: soundfont!) : nil
+            do {
+                let wavData = try TMDWAVRenderer.renderWAV(from: sheet, soundBankURL: soundBankURL)
+                let outURL = URL(fileURLWithPath: wavPath)
+                try wavData.write(to: outURL)
+                print("WAV rendered successfully to \(wavPath) (\(wavData.count) bytes)")
+            } catch {
+                print("Error rendering WAV audio: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
         }
     }
 }

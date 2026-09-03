@@ -5,6 +5,7 @@ import TmdMIDI
 import TmdMusicXML
 import TmdLilyPond
 import TmdUtils
+import TmdAudio
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -201,4 +202,30 @@ import TmdUtils
         #expect(sheetBig5?.paragraphs.first?.instrument == "鋼琴")
     }
 }
+
+#if os(macOS)
+@Test func testAudioRendering() throws {
+    let tmd = """
+    ::SCORE::
+    ** Audio Test **
+    != 140
+    ?= C
+    <4/4>
+    intro:Piano@|0|{
+    <4*>
+    1 2 3 4
+    }
+    -> intro ->#
+    """
+    guard let sheet = TmdParser.parse(string: tmd) else {
+        Issue.record("Failed to parse audio test score")
+        return
+    }
+
+    let wavData = try TMDWAVRenderer.renderWAV(from: sheet)
+    #expect(!wavData.isEmpty)
+    #expect(wavData.starts(with: [0x52, 0x49, 0x46, 0x46])) // "RIFF"
+}
+#endif
+
 
