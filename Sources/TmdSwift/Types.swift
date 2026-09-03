@@ -60,7 +60,7 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
     public init(string: String) {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let first = trimmed.first,
-              let tonic = Self.tonic(for: first) else {
+              let tonic = ScaleDegree(letter: first) else {
             self.init()
             return
         }
@@ -76,24 +76,10 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
     }
 
     public var description: String {
-        let letter = ["C", "D", "E", "F", "G", "A", "B"][tonic.rawValue - 1]
         switch accidental {
-        case .natural: return letter
-        case .sharp: return "\(letter)'"
-        case .flat: return "\(letter),"
-        }
-    }
-
-    private static func tonic(for character: Character) -> ScaleDegree? {
-        switch character.uppercased() {
-        case "C": return .c
-        case "D": return .d
-        case "E": return .e
-        case "F": return .f
-        case "G": return .g
-        case "A": return .a
-        case "B": return .b
-        default: return nil
+        case .natural: return tonic.letter
+        case .sharp: return "\(tonic.letter)'"
+        case .flat: return "\(tonic.letter),"
         }
     }
 }
@@ -113,7 +99,7 @@ public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible 
     public var description: String {
         let value = isScaleDegree
             ? String(degree.rawValue)
-            : ["C", "D", "E", "F", "G", "A", "B"][degree.rawValue - 1]
+            : degree.letter
         switch accidental {
         case .natural: return value
         case .sharp: return "\(value)'"
@@ -161,8 +147,7 @@ public struct ChordSymbol: Equatable, Hashable, Sendable, ExpressibleByStringLit
             degree = parsed
             rootEnd = 1
         } else {
-            let letters: [Character: ScaleDegree] = ["C": .c, "D": .d, "E": .e, "F": .f, "G": .g, "A": .a, "B": .b]
-            guard let parsed = letters[Character(String(first).uppercased())] else {
+            guard let parsed = ScaleDegree(letter: first) else {
                 self.init(root: ChordRoot(degree: .c), quality: .custom(value))
                 return
             }
@@ -227,6 +212,33 @@ public enum ScaleDegree: Int, CaseIterable, Equatable, Sendable {
     case g = 5
     case a = 6
     case b = 7
+
+    /// The canonical letter name shared by keys and chord roots.
+    public var letter: String {
+        switch self {
+        case .c: return "C"
+        case .d: return "D"
+        case .e: return "E"
+        case .f: return "F"
+        case .g: return "G"
+        case .a: return "A"
+        case .b: return "B"
+        }
+    }
+
+    /// Creates a scale degree from a case-insensitive letter name.
+    public init?(letter: Character) {
+        switch letter.uppercased() {
+        case "C": self = .c
+        case "D": self = .d
+        case "E": self = .e
+        case "F": self = .f
+        case "G": self = .g
+        case "A": self = .a
+        case "B": self = .b
+        default: return nil
+        }
+    }
 }
 
 /// A musical note containing scale degree, accidental, and octave displacement.
