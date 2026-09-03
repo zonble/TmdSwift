@@ -82,7 +82,7 @@ public struct TMDMusicXMLGenerator {
     ) -> String {
         var xml = ""
         var measureNumber = 1
-        let rootOffset = parseKeySignatureSemitones(sheet.keySignature)
+        let rootOffset = parseKeySignatureSemitones(sheet.keySignature.description)
         var currentModulation = 0
 
         // Divisions per beat (quarter note) = divisions
@@ -316,7 +316,7 @@ public struct TMDMusicXMLGenerator {
               <attributes>
                 <divisions>\(divisions)</divisions>
                 <key>
-                  <fifths>\(keySignatureToFifths(sheet.keySignature))</fifths>
+                  <fifths>\(keySignatureToFifths(sheet.keySignature.description))</fifths>
                 </key>
                 <time>
                   <beats>\(sheet.beat.count)</beats>

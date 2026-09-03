@@ -498,7 +498,7 @@ private struct TokenParser {
                     key = String(note.degree.rawValue)
                     advance()
                 }
-                sheet.keySignature = key
+                sheet.keySignature = KeySignature(string: key)
 
             case .openAngle:
                 advance()

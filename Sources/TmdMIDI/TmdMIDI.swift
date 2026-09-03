@@ -144,7 +144,7 @@ public struct TMDMIDIGenerator {
         events.append(MIDIEvent(tick: 0, rawBytes: Data([0xC0 | channel, programNumber])))
 
         var currentTick: UInt32 = 0
-        let rootOffsetSemis: Int = parseKeySignatureSemitones(sheet.keySignature)
+        let rootOffsetSemis: Int = parseKeySignatureSemitones(sheet.keySignature.description)
         var currentModulation: Int = 0
 
         for order in orders {

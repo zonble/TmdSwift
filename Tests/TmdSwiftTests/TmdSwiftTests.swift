@@ -33,7 +33,7 @@ import TmdABC
 
     #expect(sheet.name == "Test Song")
     #expect(sheet.speed == 120.0)
-    #expect(sheet.keySignature == "C")
+    #expect(sheet.keySignature == KeySignature(tonic: .c))
     #expect(sheet.beat.count == 4)
     #expect(sheet.beat.noteValue == 4)
 
@@ -85,7 +85,7 @@ import TmdABC
     #expect(sheet != nil)
     #expect(sheet?.name == "Song")
     #expect(sheet?.speed == 90.0)
-    #expect(sheet?.keySignature == "G")
+    #expect(sheet?.keySignature == KeySignature(tonic: .g))
     #expect(sheet?.beat.count == 3)
     #expect(sheet?.beat.noteValue == 4)
 }
@@ -366,6 +366,16 @@ import TmdABC
     #expect(Note().degree == .c)
     #expect(Note(degree: 5).degree == .g)
     #expect(Note(degree: .a).format() == "6")
+
+    let sharp = KeySignature(string: "A'")
+    #expect(sharp.tonic == .a)
+    #expect(sharp.accidental == .sharp)
+    #expect(sharp.description == "A'")
+    let flat = KeySignature(string: "E,")
+    #expect(flat.tonic == .e)
+    #expect(flat.accidental == .flat)
+    #expect(flat.description == "E,")
+    #expect(KeySignature(string: "not-a-key") == KeySignature(tonic: .c))
 }
 
 @Test func testFilePathNormalizerVariants() throws {

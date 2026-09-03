@@ -27,7 +27,7 @@ public struct TMDLilyPondGenerator {
         global = {
           \\time \(sheet.beat.count)/\(sheet.beat.noteValue)
           \\tempo 4 = \(Int(sheet.speed > 0 ? sheet.speed : 120))
-          \\key \(lilyPondKey(sheet.keySignature))
+          \\key \(lilyPondKey(sheet.keySignature.description))
         }
 
         """
@@ -85,7 +85,7 @@ public struct TMDLilyPondGenerator {
         percussion: Bool
     ) -> String {
         var result = ""
-        let rootOffset = parseKeySignatureSemitones(sheet.keySignature)
+        let rootOffset = parseKeySignatureSemitones(sheet.keySignature.description)
         var currentModulation = 0
 
         for order in orders {

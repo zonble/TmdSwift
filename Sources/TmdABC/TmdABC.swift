@@ -18,7 +18,7 @@ public struct TMDABCGenerator {
         abc += "M:\(sheet.beat.count)/\(sheet.beat.noteValue)\n"
         abc += "L:1/16\n" // Base unit length = 16th note for high rhythm precision
         abc += "Q:1/4=\(Int(sheet.speed > 0 ? sheet.speed : 120))\n"
-        abc += "K:\(abcKey(sheet.keySignature))\n\n"
+        abc += "K:\(abcKey(sheet.keySignature.description))\n\n"
 
         let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
         let instruments = distinctInstruments.isEmpty ? ["Piano"] : distinctInstruments
@@ -58,7 +58,7 @@ public struct TMDABCGenerator {
         orders: [Order]
     ) -> String {
         var result = ""
-        let rootOffset = parseKeySignatureSemitones(sheet.keySignature)
+        let rootOffset = parseKeySignatureSemitones(sheet.keySignature.description)
         var currentModulation = 0
 
         // In L:1/16, one quarter note is 4. One full measure is count * (16 / noteValue)

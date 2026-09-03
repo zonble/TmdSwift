@@ -25,7 +25,7 @@ public struct Beat: Equatable {
 ///
 /// > Note: Originally named `SharpFalls` in Aguai's C++ code, where flat was
 /// > named `Falls`.
-public enum Accidental: Equatable {
+public enum Accidental: Equatable, Hashable, Sendable {
     /// Natural pitch (unaltered).
     ///
     /// > Note: Originally named `SharpFalls::Normal` in Aguai's C++ code.
@@ -40,6 +40,62 @@ public enum Accidental: Equatable {
     ///
     /// > Note: Originally named `SharpFalls::Falls` in Aguai's C++ code.
     case flat
+}
+
+/// A typed TMD key signature consisting of a tonic and an optional accidental.
+public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertible {
+    /// The tonic letter of the key.
+    public var tonic: ScaleDegree
+
+    /// The accidental applied to the tonic.
+    public var accidental: Accidental
+
+    public init(tonic: ScaleDegree = .c, accidental: Accidental = .natural) {
+        self.tonic = tonic
+        self.accidental = accidental
+    }
+
+    /// Parses TMD spellings such as `C`, `A'`, and `E,`. Invalid spellings
+    /// resolve to C so a non-optional Sheet property remains safe to use.
+    public init(string: String) {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first,
+              let tonic = Self.tonic(for: first) else {
+            self.init()
+            return
+        }
+        let accidental: Accidental
+        if trimmed.contains("'") || trimmed.contains("#") {
+            accidental = .sharp
+        } else if trimmed.contains(",") || trimmed.contains("b") {
+            accidental = .flat
+        } else {
+            accidental = .natural
+        }
+        self.init(tonic: tonic, accidental: accidental)
+    }
+
+    public var description: String {
+        let letter = ["C", "D", "E", "F", "G", "A", "B"][tonic.rawValue - 1]
+        switch accidental {
+        case .natural: return letter
+        case .sharp: return "\(letter)'"
+        case .flat: return "\(letter),"
+        }
+    }
+
+    private static func tonic(for character: Character) -> ScaleDegree? {
+        switch character.uppercased() {
+        case "C": return .c
+        case "D": return .d
+        case "E": return .e
+        case "F": return .f
+        case "G": return .g
+        case "A": return .a
+        case "B": return .b
+        default: return nil
+        }
+    }
 }
 
 /// The seven scale degrees used by TMD numbered notation.
@@ -292,7 +348,7 @@ public struct Sheet: Equatable {
     /// Initial key signature (syntax denoted by `?= A'`).
     ///
     /// > Note: Originally named `keySignature` in Aguai's C++ code.
-    public var keySignature: String = "C"
+    public var keySignature: KeySignature = KeySignature()
 
     /// Time signature (syntax denoted by `<4/4>`).
     ///
@@ -315,7 +371,7 @@ public struct Sheet: Equatable {
     public init(
         name: String = "",
         speed: Double = 0.0,
-        keySignature: String = "C",
+        keySignature: KeySignature = KeySignature(),
         beat: Beat = Beat(),
         paragraphs: [Paragraph] = [],
         orders: [Order] = [],
@@ -328,5 +384,18 @@ public struct Sheet: Equatable {
         self.paragraphs = paragraphs
         self.orders = orders
         self.metadata = metadata
+    }
+
+    /// Source-compatible initializer accepting the original string spelling.
+    public init(
+        name: String = "",
+        speed: Double = 0.0,
+        keySignature: String,
+        beat: Beat = Beat(),
+        paragraphs: [Paragraph] = [],
+        orders: [Order] = [],
+        metadata: [String: String] = [:]
+    ) {
+        self.init(name: name, speed: speed, keySignature: KeySignature(string: keySignature), beat: beat, paragraphs: paragraphs, orders: orders, metadata: metadata)
     }
 }
