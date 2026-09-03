@@ -300,10 +300,11 @@ public struct TMDMIDIGenerator {
 
     /// Converts scale degree (1~7) + accidental + octave into MIDI pitch (Middle C = 60).
     public static func noteToMIDIPitch(_ note: Note, keyOffset: Int) -> Int {
-        guard note.degree >= 1 && note.degree <= 7 else { return -1 }
+        let degree = note.degree.rawValue
+        guard (1...7).contains(degree) else { return -1 }
         // Major scale degree semitone offsets from root: 1->0, 2->2, 3->4, 4->5, 5->7, 6->9, 7->11
         let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var pitch = 60 + keyOffset + scaleSteps[note.degree - 1]
+        var pitch = 60 + keyOffset + scaleSteps[degree - 1]
 
         switch note.accidental {
         case .sharp: pitch += 1
@@ -331,7 +332,8 @@ public struct TMDMIDIGenerator {
         // Check if starts with a degree number 1~7
         if let firstChar = trimmed.first, firstChar >= "1" && firstChar <= "7" {
             let deg = Int(String(firstChar))!
-            let rootNote = Note(accidental: .natural, degree: deg, octave: 0)
+            guard let scaleDegree = ScaleDegree(rawValue: deg) else { return [] }
+            let rootNote = Note(accidental: .natural, degree: scaleDegree, octave: 0)
             let rootPitch = noteToMIDIPitch(rootNote, keyOffset: keyOffset) - 12 // Drop chord root by an octave for warmth
 
             // Check if minor (e.g. 6m)

@@ -297,7 +297,7 @@ public final class Lexer {
             if isModifier || !isDigit {
                 advance()
                 var note = Note()
-                note.degree = Int(c.value - UnicodeScalar("0").value)
+                note.degree = ScaleDegree(rawValue: Int(c.value - UnicodeScalar("0").value))!
                 while !isAtEnd {
                     guard let mod = peek() else { break }
                     if mod == "'" {
@@ -464,7 +464,7 @@ private struct TokenParser {
                     case .identifier(let s): nameParts.append(s)
                     case .number(let n): nameParts.append(String(n))
                     case .positiveNumber(let n): nameParts.append(String(n))
-                    case .note(let note): nameParts.append(String(note.degree))
+                    case .note(let note): nameParts.append(String(note.degree.rawValue))
                     default: break
                     }
                 }
@@ -495,7 +495,7 @@ private struct TokenParser {
                     key = s
                     advance()
                 } else if case .note(let note) = current {
-                    key = String(note.degree)
+                    key = String(note.degree.rawValue)
                     advance()
                 }
                 sheet.keySignature = key
@@ -506,7 +506,7 @@ private struct TokenParser {
                     sheet.beat.count = c
                     advance()
                 } else if case .note(let note) = current {
-                    sheet.beat.count = note.degree
+                    sheet.beat.count = note.degree.rawValue
                     advance()
                 }
                 match(.slash)
@@ -514,7 +514,7 @@ private struct TokenParser {
                     sheet.beat.noteValue = n
                     advance()
                 } else if case .note(let note) = current {
-                    sheet.beat.noteValue = note.degree
+                    sheet.beat.noteValue = note.degree.rawValue
                     advance()
                 }
                 match(.closeAngle)
@@ -533,7 +533,7 @@ private struct TokenParser {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
                         case .positiveNumber(let n): name += "+\(n)"
-                        case .note(let note): name += String(note.degree)
+                        case .note(let note): name += String(note.degree.rawValue)
                         case .tie: name += "-"
                         default: break
                         }
@@ -548,7 +548,7 @@ private struct TokenParser {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
                         case .positiveNumber(let n): name += "+\(n)"
-                        case .note(let note): name += String(note.degree)
+                        case .note(let note): name += String(note.degree.rawValue)
                         case .tie: name += "-"
                         default: break
                         }
@@ -605,7 +605,7 @@ private struct TokenParser {
                     start = -n
                     advance()
                 } else if case .note(let note) = current {
-                    start = -note.degree
+                    start = -note.degree.rawValue
                     advance()
                 } else if case .positiveNumber(let n) = current {
                     start = n
@@ -618,7 +618,7 @@ private struct TokenParser {
                 start = n
                 advance()
             } else if case .note(let note) = current {
-                start = note.degree
+                start = note.degree.rawValue
                 advance()
             }
             match(.pipe)
@@ -645,7 +645,7 @@ private struct TokenParser {
                     noteLength = n
                     advance()
                 } else if case .note(let note) = current {
-                    noteLength = note.degree
+                    noteLength = note.degree.rawValue
                     advance()
                 } else if current == .asterisk {
                     // Legacy spelling: <*1>
@@ -654,7 +654,7 @@ private struct TokenParser {
                         noteLength = n
                         advance()
                     } else if case .note(let note) = current {
-                        noteLength = note.degree
+                        noteLength = note.degree.rawValue
                         advance()
                     }
                 }
@@ -783,7 +783,7 @@ private struct TokenParser {
                 switch advance() {
                 case .number(let n): value += String(n)
                 case .positiveNumber(let n): value += "+\(n)"
-                case .note(let n): value += String(n.degree)
+                case .note(let n): value += String(n.degree.rawValue)
                 case .identifier(let s): value += s
                 case .tie: value += "-"
                 default: break
@@ -800,7 +800,7 @@ private struct TokenParser {
                 case .identifier(let s): value += s
                 case .number(let n): value += String(n)
                 case .positiveNumber(let n): value += "+\(n)"
-                case .note(let n): value += String(n.degree)
+                case .note(let n): value += String(n.degree.rawValue)
                 default: break
                 }
             }
@@ -809,17 +809,17 @@ private struct TokenParser {
             advance()
             var value = ""
             if case .identifier(let s) = current { value = s; advance() }
-            else if case .note(let n) = current { value = String(n.degree); advance() }
+            else if case .note(let n) = current { value = String(n.degree.rawValue); advance() }
             return SectionDirective(position: position, kind: .absoluteKey(value))
         case .openAngle:
             advance()
             var count = 4
             var noteValue = 4
             if case .number(let n) = current { count = n; advance() }
-            else if case .note(let n) = current { count = n.degree; advance() }
+            else if case .note(let n) = current { count = n.degree.rawValue; advance() }
             match(.slash)
             if case .number(let n) = current { noteValue = n; advance() }
-            else if case .note(let n) = current { noteValue = n.degree; advance() }
+            else if case .note(let n) = current { noteValue = n.degree.rawValue; advance() }
             match(.closeAngle)
             return SectionDirective(position: position, kind: .timeSignature(Beat(count: count, noteValue: noteValue)))
         default:

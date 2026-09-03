@@ -76,7 +76,7 @@ extension Sheet: CustomStringConvertible {
 extension Note {
     /// Formats note into TMD representation (e.g. `1`, `1'`, `7,`, `3^`, `4_`).
     public func format() -> String {
-        var str = "\(degree)"
+        var str = "\(degree.rawValue)"
         switch accidental {
         case .sharp:
             str += "'"

@@ -353,6 +353,21 @@ import TmdABC
     #expect(sheet?.format().contains("cue black") == true)
 }
 
+@Test func testScaleDegreeEnum() throws {
+    #expect(ScaleDegree.c.rawValue == 1)
+    #expect(ScaleDegree.d.rawValue == 2)
+    #expect(ScaleDegree.e.rawValue == 3)
+    #expect(ScaleDegree.f.rawValue == 4)
+    #expect(ScaleDegree.g.rawValue == 5)
+    #expect(ScaleDegree.a.rawValue == 6)
+    #expect(ScaleDegree.b.rawValue == 7)
+    #expect(ScaleDegree(rawValue: 0) == nil)
+    #expect(ScaleDegree(rawValue: 8) == nil)
+    #expect(Note().degree == .c)
+    #expect(Note(degree: 5).degree == .g)
+    #expect(Note(degree: .a).format() == "6")
+}
+
 @Test func testFilePathNormalizerVariants() throws {
     #expect(FilePathNormalizer.isFileURL(" file:///tmp/a%20b "))
     #expect(FilePathNormalizer.isFileURL("<file://localhost/tmp/a>"))
@@ -416,7 +431,7 @@ import TmdABC
         beat: Beat(count: 0, noteValue: 0),
         paragraphs: [Paragraph(name: "A", instrument: "Unknown", sections: [
             Section(noteLength: 8, unitGroups: [
-                UnitGroup(units: [.note(Note(degree: 0)), .chord("???")], length: 2),
+                UnitGroup(units: [.note(Note(degree: .c)), .chord("???")], length: 2),
                 UnitGroup(units: [], length: 1)
             ])
         ])],
@@ -424,7 +439,7 @@ import TmdABC
     )
 
     #expect(!TMDMIDIGenerator.generateMIDI(from: sheet).isEmpty)
-    #expect(TMDMIDIGenerator.noteToMIDIPitch(Note(degree: 0), keyOffset: 0) == -1)
+    #expect(TMDMIDIGenerator.noteToMIDIPitch(Note(degree: .c), keyOffset: 0) == 60)
     #expect(!TMDMIDIGenerator.chordToMIDIPitches("???", keyOffset: 0).isEmpty)
     #expect(TMDMIDIGenerator.generalMidiProgram(for: "Unknown") == 0)
     #expect(TMDMusicXMLGenerator.generateMusicXML(from: sheet).contains("score-partwise"))

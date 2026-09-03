@@ -196,9 +196,10 @@ public struct TMDABCGenerator {
     // MARK: - Pitch Helpers
 
     private static func noteToABCPitch(_ note: Note, keyOffset: Int) -> String {
-        guard note.degree >= 1 && note.degree <= 7 else { return "C" }
+        let degree = note.degree.rawValue
+        guard (1...7).contains(degree) else { return "C" }
         let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var midiPitch = 60 + keyOffset + scaleSteps[note.degree - 1]
+        var midiPitch = 60 + keyOffset + scaleSteps[degree - 1]
 
         switch note.accidental {
         case .sharp: midiPitch += 1

@@ -42,7 +42,18 @@ public enum Accidental: Equatable {
     case flat
 }
 
-/// A musical note containing scale degree (1~7), accidental, and octave displacement.
+/// The seven scale degrees used by TMD numbered notation.
+public enum ScaleDegree: Int, CaseIterable, Equatable, Sendable {
+    case c = 1
+    case d = 2
+    case e = 3
+    case f = 4
+    case g = 5
+    case a = 6
+    case b = 7
+}
+
+/// A musical note containing scale degree, accidental, and octave displacement.
 ///
 /// > Note: Originally named `Node` in Aguai's C++ code (likely a typo for `Note`).
 public struct Note: Equatable {
@@ -52,10 +63,10 @@ public struct Note: Equatable {
     public var accidental: Accidental = .natural
 
     /// Numbered musical notation scale degree (`1` to `7` representing Do
-    /// through Ti).
+    /// through Ti). Invalid values cannot be represented in the AST.
     ///
     /// > Note: Originally named `name` (as `int`) in Aguai's C++ code.
-    public var degree: Int = 0
+    public var degree: ScaleDegree = .c
 
     /// Octave displacement. Positive numbers shift octaves higher (syntax `^`),
     /// negative lower (syntax `_`).
@@ -63,10 +74,17 @@ public struct Note: Equatable {
     /// > Note: Originally named `octave` in Aguai's C++ code.
     public var octave: Int = 0
 
-    public init(accidental: Accidental = .natural, degree: Int = 0, octave: Int = 0) {
+    public init(accidental: Accidental = .natural, degree: ScaleDegree = .c, octave: Int = 0) {
         self.accidental = accidental
         self.degree = degree
         self.octave = octave
+    }
+
+    /// Source-compatible initializer for callers that use the TMD numeric form.
+    /// Invalid degrees fail immediately instead of creating an invalid Note.
+    public init(accidental: Accidental = .natural, degree: Int, octave: Int = 0) {
+        precondition((1...7).contains(degree), "Scale degree must be between 1 and 7")
+        self.init(accidental: accidental, degree: ScaleDegree(rawValue: degree)!, octave: octave)
     }
 }
 

@@ -382,11 +382,10 @@ public struct TMDMusicXMLGenerator {
     // MARK: - Musical Conversion Helpers
 
     private static func pitchToStepAlterOctave(note: Note, keyOffset: Int) -> (step: String, alter: Int, octave: Int) {
-        guard note.degree >= 1 && note.degree <= 7 else {
-            return ("C", 0, 4)
-        }
+        let degree = note.degree.rawValue
+        guard (1...7).contains(degree) else { return ("C", 0, 4) }
         let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
-        var midiPitch = 60 + keyOffset + scaleSteps[note.degree - 1]
+        var midiPitch = 60 + keyOffset + scaleSteps[degree - 1]
         switch note.accidental {
         case .sharp: midiPitch += 1
         case .flat: midiPitch -= 1
