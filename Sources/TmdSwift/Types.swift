@@ -140,18 +140,34 @@ public struct UnitGroup: Equatable {
     }
 }
 
-/// A local change in tempo, key, or meter occurring inside a section.
+/// The kind of local musical change occurring inside a section.
+///
+/// A directive is stored together with its position in ``Section.directives``.
+/// Its position is measured in the section's base units, so exporters can apply
+/// the change at the correct point in the rendered timeline.
 public enum SectionDirectiveKind: Equatable {
+    /// Sets the tempo to an absolute BPM value.
     case tempo(Double)
+
+    /// Adds the given BPM delta to the current tempo.
     case relativeTempo(Double)
+
+    /// Changes to an absolute key signature, such as `C` or `A'`.
     case absoluteKey(String)
+
+    /// Transposes the current key by the given number of semitones.
     case relativeKey(Int)
+
+    /// Changes the time signature, for example from 4/4 to 3/4.
     case timeSignature(Beat)
 }
 
+/// A positioned local change in a TMD section.
 public struct SectionDirective: Equatable {
     /// Position measured in section base units, before the directive.
     public var position: Int
+
+    /// The tempo, key, or time-signature change to apply.
     public var kind: SectionDirectiveKind
 
     public init(position: Int, kind: SectionDirectiveKind) {
