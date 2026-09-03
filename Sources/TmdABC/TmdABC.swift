@@ -57,44 +57,46 @@ public struct TMDABCGenerator {
         sheet: Sheet,
         orders: [Order]
     ) -> String {
+        let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
         var result = ""
-        let rootOffset = sheet.keySignature.semitoneOffset
-        var currentModulation = 0
-
-        // In L:1/16, one quarter note is 4. One full measure is count * (16 / noteValue)
-        let measureUnits = sheet.beat.count * (16 / max(1, sheet.beat.noteValue))
-
-        for order in orders {
-            switch order {
-            case .relative(let rel):
-                if let delta = Int(rel.replacingOccurrences(of: "+", with: "")) {
-                    currentModulation += delta
-                }
-            case .absolute(let abs):
-                currentModulation = KeySignature(string: abs).semitoneOffset - rootOffset
-            case .name(let paragraphName):
-                let matchingParagraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument })
-
-                guard let paragraph = matchingParagraph else {
-                    // Whole measure rest
-                    result += "z\(measureUnits) | "
-                    continue
-                }
-
-                let totalKeyOffset = rootOffset + currentModulation
-                result += "% [\(paragraphName)]\n"
-
-                for section in paragraph.sections {
-                    result += generateSectionMusic(
-                        section: section,
-                        keyOffset: totalKeyOffset
-                    )
-                    result += " | "
-                }
-                result += "\n"
+        var directiveIndex = 0
+        for event in timeline.events {
+            while directiveIndex < timeline.directives.count,
+                  timeline.directives[directiveIndex].position <= event.position {
+                result += formatDirective(timeline.directives[directiveIndex].kind)
+                directiveIndex += 1
             }
+            result += formatPlaybackEvent(event)
+            result += " "
         }
+        while directiveIndex < timeline.directives.count {
+            result += formatDirective(timeline.directives[directiveIndex].kind)
+            directiveIndex += 1
+        }
+        result += "|\n"
         return result
+    }
+
+    private static func formatDirective(_ kind: SectionDirectiveKind) -> String {
+        switch kind {
+        case .tempo(let value), .relativeTempo(let value): "Q:1/4=\(Int(value.rounded())) "
+        case .timeSignature(let beat): "M:\(beat.count)/\(beat.noteValue) "
+        case .absoluteKey(let key): "K:\(abcKey(key)) "
+        case .relativeKey: "% TMD relative key modulation "
+        }
+    }
+
+    private static func formatPlaybackEvent(_ event: PlaybackEvent) -> String {
+        let multiplier = Int((event.duration * 4).rounded())
+        let suffix = multiplier > 1 ? "\(multiplier)" : ""
+        switch event.content {
+        case .note(let note): return "\(noteToABCPitch(note, keyOffset: event.state.keyOffset))\(suffix)"
+        case .chord(let chord): return "\"\(chord.description)\"z\(suffix)"
+        case .rest: return "z\(suffix)"
+        case .percussion(let pattern):
+            let pitches = pattern.compactMap { ["X": "^F", "x": "^F", "T": "A", "t": "A", "S": "D", "s": "D"][$0] }
+            return pitches.map { "\($0)\(suffix)" }.joined(separator: " ")
+        }
     }
 
     private static func generateSectionMusic(section: Section, keyOffset: Int) -> String {

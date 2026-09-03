@@ -84,41 +84,53 @@ public struct TMDLilyPondGenerator {
         orders: [Order],
         percussion: Bool
     ) -> String {
-        var result = ""
-        let rootOffset = sheet.keySignature.semitoneOffset
-        var currentModulation = 0
-
-        for order in orders {
-            switch order {
-            case .relative(let rel):
-                if let delta = Int(rel.replacingOccurrences(of: "+", with: "")) {
-                    currentModulation += delta
-                }
-            case .absolute(let abs):
-                currentModulation = KeySignature(string: abs).semitoneOffset - rootOffset
-            case .name(let paragraphName):
-                let matchingParagraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument })
-
-                guard let paragraph = matchingParagraph else {
-                    // Whole measure rest
-                    result += "  R1*\(sheet.beat.count)/\(sheet.beat.noteValue) |\n"
-                    continue
-                }
-
-                let totalKeyOffset = rootOffset + currentModulation
-                result += "  % Section: \(paragraphName)\n"
-
-                for section in paragraph.sections {
-                    result += generateSectionMusic(
-                        section: section,
-                        keyOffset: totalKeyOffset,
-                        percussion: percussion
-                    )
-                    result += " |\n"
-                }
+        let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
+        var result = "  "
+        var directiveIndex = 0
+        for event in timeline.events {
+            while directiveIndex < timeline.directives.count,
+                  timeline.directives[directiveIndex].position <= event.position {
+                result += formatDirective(timeline.directives[directiveIndex].kind)
+                directiveIndex += 1
             }
+            result += formatPlaybackEvent(event, percussion: percussion)
+            result += " "
         }
+        while directiveIndex < timeline.directives.count {
+            result += formatDirective(timeline.directives[directiveIndex].kind)
+            directiveIndex += 1
+        }
+        result += "|\n"
         return result
+    }
+
+    private static func formatDirective(_ kind: SectionDirectiveKind) -> String {
+        switch kind {
+        case .tempo(let value), .relativeTempo(let value): "\\tempo 4 = \(Int(value.rounded())) "
+        case .timeSignature(let beat): "\\time \(beat.count)/\(beat.noteValue) "
+        case .absoluteKey(let key): "\\key \(lilyPondKey(key)) "
+        case .relativeKey: "% TMD relative key modulation "
+        }
+    }
+
+    private static func formatPlaybackEvent(_ event: PlaybackEvent, percussion: Bool) -> String {
+        let duration = formatQuarterDuration(event.duration)
+        switch event.content {
+        case .note(let note):
+            return "\(noteToLilyPondPitch(note, keyOffset: event.state.keyOffset))\(duration)"
+        case .chord(let chord):
+            let pitches = chordToLilyPondPitches(chord, keyOffset: event.state.keyOffset)
+            return "<\(pitches.joined(separator: " "))>\(duration)"
+        case .rest: return "r\(duration)"
+        case .percussion(let pattern):
+            let names = pattern.compactMap { ["X": "hh", "x": "hh", "T": "toml", "t": "toml", "S": "sn", "s": "sn"][$0] }
+            return names.map { "\($0)\(duration)" }.joined(separator: " ")
+        }
+    }
+
+    private static func formatQuarterDuration(_ quarterNotes: Double) -> String {
+        let value = Int((4.0 / max(quarterNotes, 0.0001)).rounded())
+        return "\(max(1, value))"
     }
 
     private static func generateSectionMusic(section: Section, keyOffset: Int, percussion: Bool = false) -> String {
