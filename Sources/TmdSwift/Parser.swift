@@ -78,6 +78,12 @@ public struct TMDParseError: Error, Equatable, CustomStringConvertible, Localize
 // MARK: - Lexer
 
 public final class Lexer {
+    private static let metadataKeyByPrefix = [
+        "詞：": "lyrics",
+        "曲：": "composer",
+        "編：": "arranger"
+    ]
+
     private let scalars: [UnicodeScalar]
     private var index: Int = 0
 
@@ -218,9 +224,7 @@ public final class Lexer {
                 }
                 if peek() == "\"" { advance() }
                 if key == "credit" {
-                    if value.hasPrefix("詞：") { key = "lyrics" }
-                    else if value.hasPrefix("曲：") { key = "composer" }
-                    else if value.hasPrefix("編：") { key = "arranger" }
+                    key = Self.metadataKeyByPrefix.first { value.hasPrefix($0.key) }?.value ?? key
                 }
                 return .metadata(key, value)
             }

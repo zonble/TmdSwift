@@ -317,6 +317,8 @@ import TmdABC
     guard let sheet else { return }
 
     #expect(sheet.metadata["lyrics"] == "詞：阿怪")
+    #expect(TmdParser.parse(string: "::SCORE::\n~ \"曲：作曲者\"\n->#")?.metadata["composer"] == "曲：作曲者")
+    #expect(TmdParser.parse(string: "::SCORE::\n~ \"編：編曲者\"\n->#")?.metadata["arranger"] == "編：編曲者")
     #expect(sheet.metadata["ARR"] == "編曲者")
     #expect(sheet.paragraphs[0].start == -1)
     #expect(sheet.paragraphs[0].sections[0].unitGroups[0].units[0] == .rest)
