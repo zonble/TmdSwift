@@ -593,3 +593,34 @@ import TmdABC
     #expect(!midi.isEmpty)
 }
 
+@Test func testTieExtendsNoteDuration() throws {
+    let tmd = """
+    ::SCORE::
+    ** Tie Half Note Test **
+    != 120
+    ?= C
+    <4/4>
+
+    intro:Piano@|0|{
+        <4*>
+        3 - 1 - - -
+    }
+
+    -> intro ->#
+    """
+
+    let sheet = try TmdParser.parseThrowing(string: tmd)
+    let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: "Piano")
+
+    // In <4*>, 3 - should be a half note (duration = 2.0 quarter notes).
+    // 1 - - - should be a whole note (duration = 4.0 quarter notes).
+    let noteEvents = timeline.events.filter {
+        if case .note = $0.content { return true }
+        return false
+    }
+    #expect(noteEvents.count == 2)
+    #expect(noteEvents[0].duration == 2.0)
+    #expect(noteEvents[1].duration == 4.0)
+}
+
+

@@ -146,12 +146,26 @@ public enum TMDPlaybackRenderer {
                 }
 
                 let groupDuration = Double(max(0, group.length)) * unitDuration
-                let units = group.units.filter { $0 != .tie }
-                let eventDuration = units.isEmpty ? groupDuration : groupDuration / Double(units.count)
-                if units.isEmpty {
-                    events.append(PlaybackEvent(position: position, duration: groupDuration, content: .rest, state: state))
+                let activeUnits = group.units.filter { $0 != .tie }
+
+                if activeUnits.isEmpty {
+                    // All units in group are ties
+                    if !events.isEmpty {
+                        // Extend the duration of the most recent note or chord
+                        let last = events.removeLast()
+                        events.append(PlaybackEvent(
+                            position: last.position,
+                            duration: last.duration + groupDuration,
+                            content: last.content,
+                            state: last.state
+                        ))
+                    } else {
+                        // Leading tie with no preceding note acts as rest
+                        events.append(PlaybackEvent(position: position, duration: groupDuration, content: .rest, state: state))
+                    }
                 } else {
-                    for (index, unit) in units.enumerated() {
+                    let eventDuration = groupDuration / Double(activeUnits.count)
+                    for (index, unit) in activeUnits.enumerated() {
                         guard let content = content(of: unit) else { continue }
                         events.append(PlaybackEvent(
                             position: position + Double(index) * eventDuration,
