@@ -128,7 +128,7 @@ public struct TMDMIDIGenerator {
         events.append(MIDIEvent(tick: 0, message: .programChange(channel: channel, program: programNumber)))
 
         var currentTick: UInt32 = 0
-        let rootOffsetSemis: Int = parseKeySignatureSemitones(sheet.keySignature.description)
+        let rootOffsetSemis = sheet.keySignature.semitoneOffset
         var currentModulation: Int = 0
 
         for order in orders {
@@ -138,7 +138,7 @@ public struct TMDMIDIGenerator {
                     currentModulation += delta
                 }
             case .absolute(let abs):
-                currentModulation = parseKeySignatureSemitones(abs) - rootOffsetSemis
+                currentModulation = KeySignature(string: abs).semitoneOffset - rootOffsetSemis
             case .name(let paragraphName):
                 // Find paragraph matching name and instrument
                 guard let paragraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument }) else {
@@ -271,7 +271,7 @@ public struct TMDMIDIGenerator {
     private static func applyKeyDirective(_ kind: SectionDirectiveKind, to offset: inout Int) {
         switch kind {
         case .relativeKey(let delta): offset += delta
-        case .absoluteKey(let key): offset = parseKeySignatureSemitones(key)
+        case .absoluteKey(let key): offset = KeySignature(string: key).semitoneOffset
         default: break
         }
     }
@@ -314,8 +314,7 @@ public struct TMDMIDIGenerator {
     }
 
     public static func parseKeySignatureSemitones(_ key: String) -> Int {
-        let signature = KeySignature(string: key)
-        return signature.tonic.semitoneOffset + signature.accidental.semitoneOffset
+        KeySignature(string: key).semitoneOffset
     }
 
     public static func generalMidiProgram(for instrument: String) -> UInt8 {

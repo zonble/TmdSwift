@@ -91,6 +91,11 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
         case .flat: "\(tonic.letter),"
         }
     }
+
+    /// Chromatic offset of this key's tonic from C.
+    public var semitoneOffset: Int {
+        tonic.semitoneOffset + accidental.semitoneOffset
+    }
 }
 
 /// A chord root in TMD notation, either a movable-do degree or a letter root.

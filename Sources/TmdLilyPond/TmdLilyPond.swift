@@ -85,7 +85,7 @@ public struct TMDLilyPondGenerator {
         percussion: Bool
     ) -> String {
         var result = ""
-        let rootOffset = parseKeySignatureSemitones(sheet.keySignature.description)
+        let rootOffset = sheet.keySignature.semitoneOffset
         var currentModulation = 0
 
         for order in orders {
@@ -95,7 +95,7 @@ public struct TMDLilyPondGenerator {
                     currentModulation += delta
                 }
             case .absolute(let abs):
-                currentModulation = parseKeySignatureSemitones(abs) - rootOffset
+                currentModulation = KeySignature(string: abs).semitoneOffset - rootOffset
             case .name(let paragraphName):
                 let matchingParagraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument })
 
@@ -150,7 +150,7 @@ public struct TMDLilyPondGenerator {
             while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
                 switch sortedDirectives[directiveIndex].kind {
                 case .relativeKey(let delta): localKeyOffset += delta
-                case .absoluteKey(let key): localKeyOffset = parseKeySignatureSemitones(key)
+                case .absoluteKey(let key): localKeyOffset = KeySignature(string: key).semitoneOffset
                 default: break
                 }
                 directiveIndex += 1
@@ -288,16 +288,6 @@ public struct TMDLilyPondGenerator {
             pitch += "es"
         }
         return "\(pitch) \\major"
-    }
-
-    private static func parseKeySignatureSemitones(_ key: String) -> Int {
-        let trimmed = key.trimmingCharacters(in: .whitespaces)
-        guard let first = trimmed.first else { return 0 }
-        guard let degree = ScaleDegree(letter: first) else { return 0 }
-        let accidental = trimmed.contains("'") || trimmed.contains("#")
-            ? Accidental.sharp
-            : trimmed.contains(",") || trimmed.contains("b") ? .flat : .natural
-        return degree.semitoneOffset + accidental.semitoneOffset
     }
 
     private static func sanitizeIdentifier(_ string: String, index: Int) -> String {
