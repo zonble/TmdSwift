@@ -46,15 +46,6 @@ public struct TMDMusicXMLGenerator {
         }
         xml += "  </part-list>\n"
 
-        // Order flow
-        let orders: [Order]
-        if sheet.orders.isEmpty {
-            let uniqueNames = Set(sheet.paragraphs.map { $0.name })
-            orders = sheet.paragraphs.map { $0.name }.filter { uniqueNames.contains($0) }.map { Order.name($0) }
-        } else {
-            orders = sheet.orders
-        }
-
         let divisions = 16 // 16 divisions per quarter note gives high subdivision precision
 
         // Generate <part> for each instrument
@@ -64,7 +55,6 @@ public struct TMDMusicXMLGenerator {
             xml += generatePartMeasures(
                 instrument: inst,
                 sheet: sheet,
-                orders: orders,
                 divisions: divisions
             )
             xml += "  </part>\n"
@@ -77,214 +67,94 @@ public struct TMDMusicXMLGenerator {
     private static func generatePartMeasures(
         instrument: String,
         sheet: Sheet,
-        orders: [Order],
         divisions: Int
     ) -> String {
+        let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
+        let measureDuration = Double(max(1, sheet.beat.count)) * 4.0 / Double(max(1, sheet.beat.noteValue))
+        let measureCount = max(1, Int(ceil(timeline.duration / measureDuration)))
         var xml = ""
-        var measureNumber = 1
-        let rootOffset = sheet.keySignature.semitoneOffset
-        var currentModulation = 0
+        var eventIndex = 0
+        var directiveIndex = 0
 
-        // Divisions per beat (quarter note) = divisions
-        // Duration of one quarter note = divisions
-        let beatsPerMeasure = sheet.beat.count
-        let noteValue = sheet.beat.noteValue > 0 ? sheet.beat.noteValue : 4
-        let measureDivisions = (divisions * 4 * beatsPerMeasure) / noteValue
-
-        for order in orders {
-            switch order {
-            case .relative(let rel):
-                if let delta = Int(rel.replacingOccurrences(of: "+", with: "")) {
-                    currentModulation += delta
-                }
-            case .absolute(let abs):
-                currentModulation = KeySignature(string: abs).semitoneOffset - rootOffset
-            case .name(let paragraphName):
-                let matchingParagraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument })
-
-                guard let paragraph = matchingParagraph else {
-                    // Empty measure for this instrument
-                    xml += generateEmptyMeasure(
-                        measureNumber: measureNumber,
-                        measureDivisions: measureDivisions,
-                        sheet: sheet,
-                        divisions: divisions,
-                        isFirstMeasure: measureNumber == 1
-                    )
-                    measureNumber += 1
-                    continue
-                }
-
-                let totalKeyOffset = rootOffset + currentModulation
-
-                for (sIdx, section) in paragraph.sections.enumerated() {
-                    let isFirstOverall = (measureNumber == 1 && sIdx == 0)
-                    xml += generateSectionMeasure(
-                        section: section,
-                        measureNumber: measureNumber,
-                        measureDivisions: measureDivisions,
-                        keyOffset: totalKeyOffset,
-                        sheet: sheet,
-                        divisions: divisions,
-                        isFirstMeasure: isFirstOverall
-                    )
-                    measureNumber += 1
-                }
+        for measure in 0..<measureCount {
+            let start = Double(measure) * measureDuration
+            let end = start + measureDuration
+            var content = ""
+            if measure == 0 {
+                content += generateAttributesXML(sheet: sheet, divisions: divisions)
             }
-        }
+            while directiveIndex < timeline.directives.count,
+                  timeline.directives[directiveIndex].position < end {
+                let directive = timeline.directives[directiveIndex]
+                if directive.position >= start {
+                    content += generatePlaybackDirectiveXML(directive)
+                }
+                directiveIndex += 1
+            }
 
-        if measureNumber == 1 {
-            // Ensure at least one measure exists
-            xml += generateEmptyMeasure(
-                measureNumber: 1,
-                measureDivisions: measureDivisions,
-                sheet: sheet,
-                divisions: divisions,
-                isFirstMeasure: true
-            )
+            var cursor = start
+            while eventIndex < timeline.events.count,
+                  timeline.events[eventIndex].position < end {
+                let event = timeline.events[eventIndex]
+                if event.position >= start {
+                    let gap = event.position - cursor
+                    if gap > 0 {
+                        content += generateRestXML(duration: Int((gap * Double(divisions)).rounded()))
+                    }
+                    let duration = max(1, Int((event.duration * Double(divisions)).rounded()))
+                    switch event.content {
+                    case .note(let note):
+                        content += generateNoteXML(note: note, duration: duration, keyOffset: event.state.keyOffset)
+                    case .chord(let chord):
+                        content += generateChordXML(chordName: chord.description, duration: duration, keyOffset: event.state.keyOffset)
+                    case .rest:
+                        content += generateRestXML(duration: duration)
+                    case .percussion(let pattern):
+                        content += generatePercussionXML(pattern: pattern, duration: duration)
+                    }
+                    cursor = event.position + event.duration
+                }
+                eventIndex += 1
+            }
+            let remaining = end - cursor
+            if remaining > 0 {
+                content += generateRestXML(duration: Int((remaining * Double(divisions)).rounded()))
+            }
+            xml += "    <measure number=\"\(measure + 1)\">\n\(content)    </measure>\n\n"
         }
-
         return xml
     }
 
-    private static func generateEmptyMeasure(
-        measureNumber: Int,
-        measureDivisions: Int,
-        sheet: Sheet,
-        divisions: Int,
-        isFirstMeasure: Bool
-    ) -> String {
-        var m = "    <measure number=\"\(measureNumber)\">\n"
-        if isFirstMeasure {
-            m += generateAttributesXML(sheet: sheet, divisions: divisions)
-        }
-        m += """
+    private static func generateRestXML(duration: Int) -> String {
+        """
                 <note>
-                  <rest measure="yes"/>
-                  <duration>\(measureDivisions)</duration>
+                  <rest/>
+                  <duration>\(max(1, duration))</duration>
                 </note>
-            </measure>
 
         """
-        return m
     }
 
-    private static func generateSectionMeasure(
-        section: Section,
-        measureNumber: Int,
-        measureDivisions: Int,
-        keyOffset: Int,
-        sheet: Sheet,
-        divisions: Int,
-        isFirstMeasure: Bool
-    ) -> String {
-        var m = "    <measure number=\"\(measureNumber)\">\n"
-        if isFirstMeasure {
-            m += generateAttributesXML(sheet: sheet, divisions: divisions)
-        }
-        m += generateDirectivesXML(section.directives)
-
-        let baseNoteDivisions = (divisions * 4) / max(1, section.noteLength)
-
-        if section.unitGroups.isEmpty {
-            m += """
-                    <note>
-                      <rest measure="yes"/>
-                      <duration>\(measureDivisions)</duration>
-                    </note>
+    private static func generatePlaybackDirectiveXML(_ directive: PlaybackDirectiveEvent) -> String {
+        switch directive.kind {
+        case .tempo, .relativeTempo:
+            return """
+                    <direction placement=\"above\">
+                      <direction-type><metronome><beat-unit>quarter</beat-unit><per-minute>\(Int(directive.state.tempo.rounded()))</per-minute></metronome></direction-type>
+                      <sound tempo=\"\(directive.state.tempo)\"/>
+                    </direction>
 
             """
-        } else {
-            var localKeyOffset = keyOffset
-            var sectionPosition = 0
-            var directiveIndex = 0
-            let sortedDirectives = section.directives.sorted { $0.position < $1.position }
-            for unitGroup in section.unitGroups {
-                while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
-                    switch sortedDirectives[directiveIndex].kind {
-                    case .relativeKey(let delta): localKeyOffset += delta
-                    case .absoluteKey(let key): localKeyOffset = KeySignature(string: key).semitoneOffset
-                    default: break
-                    }
-                    directiveIndex += 1
-                }
-                let groupDivisions = unitGroup.length * baseNoteDivisions
-                let activeUnits = unitGroup.units.filter { $0 != .tie }
+        case .timeSignature(let beat):
+            return """
+                    <attributes><time><beats>\(beat.count)</beats><beat-type>\(beat.noteValue)</beat-type></time></attributes>
 
-                if activeUnits.isEmpty {
-                    // Rest
-                    m += """
-                            <note>
-                              <rest/>
-                              <duration>\(groupDivisions)</duration>
-                            </note>
-
-                    """
-                } else {
-                    let subDuration = max(1, groupDivisions / activeUnits.count)
-                    for unit in activeUnits {
-                        switch unit {
-                        case .note(let note):
-                            m += generateNoteXML(note: note, duration: subDuration, keyOffset: localKeyOffset)
-                        case .chord(let chordName):
-                            m += generateChordXML(chordName: chordName.description, duration: subDuration, keyOffset: localKeyOffset)
-                        case .tie:
-                            break
-                        case .rest:
-                            m += """
-                                    <note>
-                                      <rest/>
-                                      <duration>\(subDuration)</duration>
-                                    </note>
-
-                            """
-                        case .percussion(let pattern):
-                            m += generatePercussionXML(pattern: pattern, duration: subDuration)
-                        }
-                    }
-                }
-                sectionPosition += unitGroup.length
-            }
+            """
+        case .absoluteKey(let key):
+            return "        <attributes><key><fifths>\(keySignatureToFifths(key))</fifths></key></attributes>\n"
+        case .relativeKey:
+            return "        <!-- TMD relative key modulation -->\n"
         }
-
-        m += "    </measure>\n"
-        return m
-    }
-
-    private static func generateDirectivesXML(_ directives: [SectionDirective]) -> String {
-        var result = ""
-        for directive in directives {
-            switch directive.kind {
-            case .tempo(let value), .relativeTempo(let value):
-                result += """
-                        <direction placement="above">
-                          <direction-type>
-                            <metronome>
-                              <beat-unit>quarter</beat-unit>
-                              <per-minute>\(Int(value.rounded()))</per-minute>
-                            </metronome>
-                          </direction-type>
-                          <sound tempo="\(value)"/>
-                        </direction>
-
-                """
-            case .timeSignature(let beat):
-                result += """
-                        <attributes>
-                          <time>
-                            <beats>\(beat.count)</beats>
-                            <beat-type>\(beat.noteValue)</beat-type>
-                          </time>
-                        </attributes>
-
-                """
-            case .absoluteKey(let key):
-                result += "        <attributes><key><fifths>\(keySignatureToFifths(key))</fifths></key></attributes>\n"
-            case .relativeKey:
-                result += "        <!-- TMD relative key modulation -->\n"
-            }
-        }
-        return result
     }
 
     private static func generatePercussionXML(pattern: String, duration: Int) -> String {
