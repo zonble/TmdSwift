@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import TmdSwift
+import TmdMIDI
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -135,5 +136,12 @@ import Foundation
     #expect(reparsed?.speed == sheet?.speed)
     #expect(reparsed?.paragraphs.count == sheet?.paragraphs.count)
     #expect(reparsed?.orders.count == sheet?.orders.count)
+
+    // Verify MIDI generation
+    if let validSheet = sheet {
+        let midi = TMDMIDIGenerator.generateMIDI(from: validSheet)
+        #expect(!midi.isEmpty)
+        #expect(midi.starts(with: [0x4D, 0x54, 0x68, 0x64])) // "MThd"
+    }
 }
 

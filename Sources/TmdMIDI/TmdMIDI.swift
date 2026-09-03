@@ -1,0 +1,371 @@
+import Foundation
+import TmdSwift
+
+/// Standard MIDI file generator for TMD Sheets.
+public struct TMDMIDIGenerator {
+    public static let defaultTicksPerQuarterNote: UInt16 = 480
+
+    /// Converts a Sheet into Standard MIDI File (SMF Type 1) binary data.
+    public static func generateMIDI(from sheet: Sheet, ticksPerQuarter: UInt16 = defaultTicksPerQuarterNote) -> Data {
+        var midiData = Data()
+
+        // 1. Collect arrangement playback sequence
+        // If sheet.orders is empty, fallback to playing each unique paragraph in declaration order once.
+        let orderSequence: [Order]
+        if sheet.orders.isEmpty {
+            let uniqueNames = Set(sheet.paragraphs.map { $0.name })
+            orderSequence = sheet.paragraphs.map { $0.name }.filter { uniqueNames.contains($0) }.map { Order.name($0) }
+        } else {
+            orderSequence = sheet.orders
+        }
+
+        // Group paragraphs by (name, instrument)
+        // Tracks in MIDI will correspond to distinct instruments
+        let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
+        let trackCount = UInt16(distinctInstruments.count + 1) // 1 conductor track + instrument tracks
+
+        // Header Chunk (14 bytes)
+        // "MThd", length=6, format=1, tracks=trackCount, division=ticksPerQuarter
+        midiData.append(contentsOf: "MThd".utf8)
+        midiData.append(contentsOf: UInt32(6).bigEndianBytes)
+        midiData.append(contentsOf: UInt16(1).bigEndianBytes) // Format 1 (multi-track)
+        midiData.append(contentsOf: trackCount.bigEndianBytes)
+        midiData.append(contentsOf: ticksPerQuarter.bigEndianBytes)
+
+        // Track 0: Conductor Track (Tempo, Time Signature, Track Name)
+        let conductorTrackData = buildConductorTrack(sheet: sheet)
+        midiData.append(contentsOf: "MTrk".utf8)
+        midiData.append(contentsOf: UInt32(conductorTrackData.count).bigEndianBytes)
+        midiData.append(conductorTrackData)
+
+        // Calculate sequence order events per instrument
+        for (instrumentIndex, instrument) in distinctInstruments.enumerated() {
+            let channel = UInt8(instrumentIndex % 16)
+            let trackEvents = buildInstrumentTrackEvents(
+                instrument: instrument,
+                sheet: sheet,
+                orders: orderSequence,
+                channel: channel,
+                ticksPerQuarter: ticksPerQuarter
+            )
+            let trackData = encodeTrack(events: trackEvents)
+            midiData.append(contentsOf: "MTrk".utf8)
+            midiData.append(contentsOf: UInt32(trackData.count).bigEndianBytes)
+            midiData.append(trackData)
+        }
+
+        return midiData
+    }
+
+    // MARK: - Conductor Track
+
+    private static func buildConductorTrack(sheet: Sheet) -> Data {
+        var events: [MIDIEvent] = []
+
+        // Sequence / Track Name
+        let songName = sheet.name.isEmpty ? "TMD Score" : sheet.name
+        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x03, data: Data(songName.utf8))))
+
+        // Tempo event: microseconds per quarter note = 60,000,000 / BPM
+        let bpm = sheet.speed > 0 ? sheet.speed : 120.0
+        let mpqn = UInt32(60_000_000.0 / bpm)
+        let tempoBytes = Data([
+            UInt8((mpqn >> 16) & 0xFF),
+            UInt8((mpqn >> 8) & 0xFF),
+            UInt8(mpqn & 0xFF)
+        ])
+        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x51, data: tempoBytes)))
+
+        // Time Signature: numerator, denominator as power of 2 (4 -> 2, 8 -> 3), clocks/tick(24), 32nd notes/24 clocks(8)
+        let nn = UInt8(sheet.beat.count)
+        let dd = UInt8(round(log2(Double(sheet.beat.noteValue > 0 ? sheet.beat.noteValue : 4))))
+        let timeSigBytes = Data([nn, dd, 24, 8])
+        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x58, data: timeSigBytes)))
+
+        return encodeTrack(events: events)
+    }
+
+    // MARK: - Instrument Track Construction
+
+    private static func buildInstrumentTrackEvents(
+        instrument: String,
+        sheet: Sheet,
+        orders: [Order],
+        channel: UInt8,
+        ticksPerQuarter: UInt16
+    ) -> [MIDIEvent] {
+        var events: [MIDIEvent] = []
+
+        // Track Name
+        events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x03, data: Data(instrument.utf8))))
+
+        // Program change based on instrument hint
+        let programNumber = generalMidiProgram(for: instrument)
+        events.append(MIDIEvent(tick: 0, rawBytes: Data([0xC0 | channel, programNumber])))
+
+        var currentTick: UInt32 = 0
+        let rootOffsetSemis: Int = parseKeySignatureSemitones(sheet.keySignature)
+        var currentModulation: Int = 0
+
+        for order in orders {
+            switch order {
+            case .relative(let rel):
+                if let delta = Int(rel.replacingOccurrences(of: "+", with: "")) {
+                    currentModulation += delta
+                }
+            case .absolute(let abs):
+                currentModulation = parseKeySignatureSemitones(abs) - rootOffsetSemis
+            case .name(let paragraphName):
+                // Find paragraph matching name and instrument
+                guard let paragraph = sheet.paragraphs.first(where: { $0.name == paragraphName && $0.instrument == instrument }) else {
+                    // Even if this instrument isn't in this paragraph, we must advance currentTick by this paragraph's duration!
+                    let maxDuration = calculateParagraphDurationTicks(
+                        paragraphName: paragraphName,
+                        sheet: sheet,
+                        ticksPerQuarter: ticksPerQuarter
+                    )
+                    currentTick += maxDuration
+                    continue
+                }
+
+                let totalKeyOffset = rootOffsetSemis + currentModulation
+                let sectionEvents = renderParagraph(
+                    paragraph: paragraph,
+                    baseTick: currentTick,
+                    keyOffset: totalKeyOffset,
+                    channel: channel,
+                    sheet: sheet,
+                    ticksPerQuarter: ticksPerQuarter
+                )
+                events.append(contentsOf: sectionEvents.events)
+
+                // Advance by the paragraph's duration (taking other tracks into account to stay synced)
+                let maxDuration = calculateParagraphDurationTicks(
+                    paragraphName: paragraphName,
+                    sheet: sheet,
+                    ticksPerQuarter: ticksPerQuarter
+                )
+                currentTick += max(sectionEvents.duration, maxDuration)
+            }
+        }
+
+        return events
+    }
+
+    private static func calculateParagraphDurationTicks(paragraphName: String, sheet: Sheet, ticksPerQuarter: UInt16) -> UInt32 {
+        let matchingParagraphs = sheet.paragraphs.filter { $0.name == paragraphName }
+        var maxTicks: UInt32 = 0
+        for p in matchingParagraphs {
+            let beatsPerMeasure = Double(sheet.beat.count)
+            let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(sheet.beat.noteValue)) * beatsPerMeasure)
+            var pTicks = UInt32(p.start) * ticksPerMeasure
+            for sec in p.sections {
+                let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(sec.noteLength))
+                for ug in sec.unitGroups {
+                    pTicks += UInt32(ug.length) * ticksPerUnit
+                }
+            }
+            if pTicks > maxTicks {
+                maxTicks = pTicks
+            }
+        }
+        return maxTicks
+    }
+
+    private static func renderParagraph(
+        paragraph: Paragraph,
+        baseTick: UInt32,
+        keyOffset: Int,
+        channel: UInt8,
+        sheet: Sheet,
+        ticksPerQuarter: UInt16
+    ) -> (events: [MIDIEvent], duration: UInt32) {
+        var events: [MIDIEvent] = []
+        let beatsPerMeasure = Double(sheet.beat.count)
+        let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(sheet.beat.noteValue)) * beatsPerMeasure)
+
+        var trackTick = baseTick + (UInt32(max(0, paragraph.start)) * ticksPerMeasure)
+        let startTick = trackTick
+
+        for section in paragraph.sections {
+            let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(section.noteLength))
+
+            for unitGroup in section.unitGroups {
+                let groupDuration = UInt32(unitGroup.length) * ticksPerUnit
+                let activeUnits = unitGroup.units.filter { $0 != .tie }
+
+                if !activeUnits.isEmpty {
+                    let subDuration = groupDuration / UInt32(activeUnits.count)
+                    var unitStartTick = trackTick
+
+                    for unit in activeUnits {
+                        switch unit {
+                        case .note(let note):
+                            let midiPitch = noteToMIDIPitch(note, keyOffset: keyOffset)
+                            if (0...127).contains(midiPitch) {
+                                let noteOn = Data([0x90 | channel, UInt8(midiPitch), 96])
+                                let noteOff = Data([0x80 | channel, UInt8(midiPitch), 0])
+                                events.append(MIDIEvent(tick: unitStartTick, rawBytes: noteOn))
+                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
+                            }
+                        case .chord(let chordName):
+                            let pitches = chordToMIDIPitches(chordName, keyOffset: keyOffset)
+                            for p in pitches where (0...127).contains(p) {
+                                let noteOn = Data([0x90 | channel, UInt8(p), 88])
+                                let noteOff = Data([0x80 | channel, UInt8(p), 0])
+                                events.append(MIDIEvent(tick: unitStartTick, rawBytes: noteOn))
+                                events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
+                            }
+                        case .tie:
+                            break
+                        }
+                        unitStartTick += subDuration
+                    }
+                }
+                trackTick += groupDuration
+            }
+        }
+
+        return (events, trackTick - startTick)
+    }
+
+    // MARK: - Musical Helpers
+
+    /// Converts scale degree (1~7) + accidental + octave into MIDI pitch (Middle C = 60).
+    public static func noteToMIDIPitch(_ note: Note, keyOffset: Int) -> Int {
+        guard note.degree >= 1 && note.degree <= 7 else { return -1 }
+        // Major scale degree semitone offsets from root: 1->0, 2->2, 3->4, 4->5, 5->7, 6->9, 7->11
+        let scaleSteps = [0, 2, 4, 5, 7, 9, 11]
+        var pitch = 60 + keyOffset + scaleSteps[note.degree - 1]
+
+        switch note.accidental {
+        case .sharp: pitch += 1
+        case .flat: pitch -= 1
+        case .natural: break
+        }
+
+        pitch += note.octave * 12
+        return pitch
+    }
+
+    /// Resolves chord names (degree numbers like `1`, `6m`, `4`, `5`, or chord names like `Cmaj7`).
+    public static func chordToMIDIPitches(_ chord: String, keyOffset: Int) -> [Int] {
+        let trimmed = chord.trimmingCharacters(in: .whitespaces)
+
+        // Check if starts with a degree number 1~7
+        if let firstChar = trimmed.first, firstChar >= "1" && firstChar <= "7" {
+            let deg = Int(String(firstChar))!
+            let rootNote = Note(accidental: .natural, degree: deg, octave: 0)
+            let rootPitch = noteToMIDIPitch(rootNote, keyOffset: keyOffset) - 12 // Drop chord root by an octave for warmth
+
+            // Check if minor (e.g. 6m)
+            if trimmed.contains("m") && !trimmed.contains("maj") {
+                return [rootPitch, rootPitch + 3, rootPitch + 7]
+            } else if trimmed.contains("7") {
+                return [rootPitch, rootPitch + 4, rootPitch + 7, rootPitch + 10]
+            } else {
+                return [rootPitch, rootPitch + 4, rootPitch + 7]
+            }
+        }
+
+        // Standard letter chord like C, G, Am, F
+        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
+        if let first = trimmed.first, let baseSemi = letterMap[Character(first.uppercased())] {
+            var root = 48 + baseSemi
+            if trimmed.contains("#") || trimmed.contains("'") {
+                root += 1
+            } else if trimmed.contains("b") || trimmed.contains(",") {
+                root -= 1
+            }
+
+            if trimmed.contains("m") && !trimmed.contains("maj") {
+                return [root, root + 3, root + 7]
+            } else if trimmed.contains("maj7") {
+                return [root, root + 4, root + 7, root + 11]
+            } else if trimmed.contains("7") {
+                return [root, root + 4, root + 7, root + 10]
+            } else {
+                return [root, root + 4, root + 7]
+            }
+        }
+
+        return [48 + keyOffset, 52 + keyOffset, 55 + keyOffset]
+    }
+
+    public static func parseKeySignatureSemitones(_ key: String) -> Int {
+        let trimmed = key.trimmingCharacters(in: .whitespaces)
+        guard let first = trimmed.first else { return 0 }
+        let letterMap: [Character: Int] = ["C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11]
+        guard var semi = letterMap[Character(first.uppercased())] else { return 0 }
+
+        if trimmed.contains("'") || trimmed.contains("#") {
+            semi += 1
+        } else if trimmed.contains(",") || trimmed.contains("b") {
+            semi -= 1
+        }
+        return semi
+    }
+
+    public static func generalMidiProgram(for instrument: String) -> UInt8 {
+        let lower = instrument.lowercased()
+        if lower.contains("piano") { return 0 }       // Acoustic Grand Piano
+        if lower.contains("guitar") { return 25 }     // Steel Acoustic Guitar
+        if lower.contains("chord") { return 4 }       // Electric Piano 1
+        if lower.contains("bass") { return 33 }       // Electric Bass (finger)
+        if lower.contains("drum") || lower.contains("groove") { return 118 } // Synth Drum
+        if lower.contains("chrous") || lower.contains("chorus") || lower.contains("voice") { return 52 } // Choir Aahs
+        if lower.contains("string") { return 48 }     // String Ensemble 1
+        return 0
+    }
+
+    // MARK: - MIDI Binary Encoding
+
+    private struct MIDIEvent {
+        var tick: UInt32
+        var rawBytes: Data
+    }
+
+    private static func encodeTrack(events: [MIDIEvent]) -> Data {
+        var sorted = events.sorted { $0.tick < $1.tick }
+        // Append End Of Track meta event (FF 2F 00)
+        let lastTick = sorted.last?.tick ?? 0
+        sorted.append(MIDIEvent(tick: lastTick, rawBytes: metaEvent(type: 0x2F, data: Data())))
+
+        var trackBytes = Data()
+        var lastTickWritten: UInt32 = 0
+
+        for event in sorted {
+            let delta = event.tick >= lastTickWritten ? (event.tick - lastTickWritten) : 0
+            trackBytes.append(contentsOf: variableLengthQuantity(delta))
+            trackBytes.append(event.rawBytes)
+            lastTickWritten = event.tick
+        }
+        return trackBytes
+    }
+
+    private static func metaEvent(type: UInt8, data: Data) -> Data {
+        var bytes = Data([0xFF, type])
+        bytes.append(contentsOf: variableLengthQuantity(UInt32(data.count)))
+        bytes.append(data)
+        return bytes
+    }
+
+    private static func variableLengthQuantity(_ value: UInt32) -> [UInt8] {
+        var buffer: [UInt8] = []
+        var val = value
+        buffer.append(UInt8(val & 0x7F))
+        val >>= 7
+        while val > 0 {
+            buffer.append(UInt8((val & 0x7F) | 0x80))
+            val >>= 7
+        }
+        return buffer.reversed()
+    }
+}
+
+private extension FixedWidthInteger {
+    var bigEndianBytes: [UInt8] {
+        var value = self.bigEndian
+        return withUnsafeBytes(of: &value) { Array($0) }
+    }
+}

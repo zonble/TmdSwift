@@ -1,28 +1,60 @@
 import Foundation
+import ArgumentParser
 import TmdSwift
+import TmdMIDI
 
-let arguments = CommandLine.arguments
+struct TmdCLICommand: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "tmd",
+        abstract: "A compiler and toolkit for the TMD music markup language."
+    )
 
-guard arguments.count > 1 else {
-    print("Usage: tmd <path-to-tmd-file>")
-    exit(1)
-}
+    @Argument(help: "Path to the .tmd file to process.")
+    var inputPath: String
 
-let filePath = arguments[1]
-let fileURL = URL(fileURLWithPath: filePath)
+    @Flag(name: [.short, .long], help: "Only parse and display the score structure summary.")
+    var parseOnly: Bool = false
 
-do {
-    let data = try Data(contentsOf: fileURL)
-    guard let sheet = TmdParser.parse(data: data) else {
-        print("Error: Failed to parse TMD file at \(filePath)")
-        exit(1)
+    @Option(name: [.short, .long], help: "Export to MIDI file at the specified path.")
+    var midiOutput: String?
+
+    func run() throws {
+        let fileURL = URL(fileURLWithPath: inputPath)
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            print("Error: Could not read file at \(inputPath): \(error.localizedDescription)")
+            throw ExitCode.failure
+        }
+
+        guard let sheet = TmdParser.parse(data: data) else {
+            print("Error: Failed to parse TMD file at \(inputPath)")
+            throw ExitCode.failure
+        }
+
+        print("Successfully parsed TMD file: \(inputPath)")
+        print("----------------------------------------")
+        print(sheet.summary())
+        print("----------------------------------------")
+
+        if parseOnly {
+            return
+        }
+
+        // Determine MIDI output path if specified or if user wants MIDI
+        if let outputPath = midiOutput {
+            let midiData = TMDMIDIGenerator.generateMIDI(from: sheet)
+            let outURL = URL(fileURLWithPath: outputPath)
+            do {
+                try midiData.write(to: outURL)
+                print("MIDI exported successfully to \(outputPath) (\(midiData.count) bytes)")
+            } catch {
+                print("Error saving MIDI to \(outputPath): \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
     }
-
-    print("Successfully parsed TMD file!")
-    print("----------------------------------------")
-    print(sheet.summary())
-    print("----------------------------------------")
-} catch {
-    print("Error reading file: \(error.localizedDescription)")
-    exit(1)
 }
+
+TmdCLICommand.main()

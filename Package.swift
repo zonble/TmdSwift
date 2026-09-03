@@ -11,10 +11,17 @@ let package = Package(
             name: "TmdSwift",
             targets: ["TmdSwift"]
         ),
+        .library(
+            name: "TmdMIDI",
+            targets: ["TmdMIDI"]
+        ),
         .executable(
             name: "tmd",
             targets: ["TmdCLI"]
         ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -22,13 +29,21 @@ let package = Package(
         .target(
             name: "TmdSwift"
         ),
+        .target(
+            name: "TmdMIDI",
+            dependencies: ["TmdSwift"]
+        ),
         .executableTarget(
             name: "TmdCLI",
-            dependencies: ["TmdSwift"]
+            dependencies: [
+                "TmdSwift",
+                "TmdMIDI",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]
         ),
         .testTarget(
             name: "TmdSwiftTests",
-            dependencies: ["TmdSwift"]
+            dependencies: ["TmdSwift", "TmdMIDI"]
         ),
     ],
     swiftLanguageModes: [.v6]
