@@ -6,14 +6,14 @@ public struct Beat: Equatable {
     /// Number of beats per measure (numerator), e.g. `4` in `4/4`.
     ///
     /// > Note: Originally named `count` in Aguai's C++ code.
-    public var count: Int = 4
+    public let count: Int
 
     /// Unit note value representing one beat (denominator / beat unit), e.g.
     /// `4` for a quarter note.
     ///
     /// > Note: Originally named `node` in Aguai's C++ code (likely a typo for
     /// > `note`).
-    public var noteValue: Int = 4
+    public let noteValue: Int
 
     public init(count: Int = 4, noteValue: Int = 4) {
         self.count = count
@@ -54,10 +54,10 @@ public enum Accidental: Equatable, Hashable, Sendable {
 /// A typed TMD key signature consisting of a tonic and an optional accidental.
 public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertible {
     /// The tonic letter of the key.
-    public var tonic: ScaleDegree
+    public let tonic: ScaleDegree
 
     /// The accidental applied to the tonic.
-    public var accidental: Accidental
+    public let accidental: Accidental
 
     public init(tonic: ScaleDegree = .c, accidental: Accidental = .natural) {
         self.tonic = tonic
@@ -100,9 +100,9 @@ public struct KeySignature: Equatable, Hashable, Sendable, CustomStringConvertib
 
 /// A chord root in TMD notation, either a movable-do degree or a letter root.
 public struct ChordRoot: Equatable, Hashable, Sendable, CustomStringConvertible {
-    public var degree: ScaleDegree
-    public var accidental: Accidental
-    public var isScaleDegree: Bool
+    public let degree: ScaleDegree
+    public let accidental: Accidental
+    public let isScaleDegree: Bool
 
     public init(degree: ScaleDegree, accidental: Accidental = .natural, isScaleDegree: Bool = false) {
         self.degree = degree
@@ -161,8 +161,8 @@ public enum ChordQuality: Equatable, Hashable, Sendable {
 
 /// A typed chord symbol with a finite common-quality vocabulary and extensibility.
 public struct ChordSymbol: Equatable, Hashable, Sendable, ExpressibleByStringLiteral, CustomStringConvertible {
-    public var root: ChordRoot
-    public var quality: ChordQuality
+    public let root: ChordRoot
+    public let quality: ChordQuality
 
     public init(root: ChordRoot, quality: ChordQuality = .major) {
         self.root = root
@@ -298,19 +298,19 @@ public struct Note: Equatable, Sendable {
     /// Accidental of the note.
     ///
     /// > Note: Originally named `sharpFalls` in Aguai's C++ code.
-    public var accidental: Accidental = .natural
+    public let accidental: Accidental
 
     /// Numbered musical notation scale degree (`1` to `7` representing Do
     /// through Ti). Invalid values cannot be represented in the AST.
     ///
     /// > Note: Originally named `name` (as `int`) in Aguai's C++ code.
-    public var degree: ScaleDegree = .c
+    public let degree: ScaleDegree
 
     /// Octave displacement. Positive numbers shift octaves higher (syntax `^`),
     /// negative lower (syntax `_`).
     ///
     /// > Note: Originally named `octave` in Aguai's C++ code.
-    public var octave: Int = 0
+    public let octave: Int
 
     public init(accidental: Accidental = .natural, degree: ScaleDegree = .c, octave: Int = 0) {
         self.accidental = accidental
@@ -364,13 +364,13 @@ public struct UnitGroup: Equatable {
     /// List of musical units (notes, chords, ties) in this group.
     ///
     /// > Note: Originally named `units` in Aguai's C++ code.
-    public var units: [Unit] = []
+    public let units: [Unit]
 
     /// Duration in section base beats that this group spans (e.g. `%(--)` spans
     /// 2 base beats).
     ///
     /// > Note: Originally named `length` in Aguai's C++ code.
-    public var length: Int = 1
+    public let length: Int
 
     public init(units: [Unit] = [], length: Int = 1) {
         self.units = units
@@ -403,10 +403,10 @@ public enum SectionDirectiveKind: Equatable {
 /// A positioned local change in a TMD section.
 public struct SectionDirective: Equatable {
     /// Position measured in section base units, before the directive.
-    public var position: Int
+    public let position: Int
 
     /// The tempo, key, or time-signature change to apply.
-    public var kind: SectionDirectiveKind
+    public let kind: SectionDirectiveKind
 
     public init(position: Int, kind: SectionDirectiveKind) {
         self.position = position
@@ -424,14 +424,14 @@ public struct Section: Equatable {
     ///
     /// > Note: Originally named `nodeLength` in Aguai's C++ code (likely a typo
     /// > for `noteLength`).
-    public var noteLength: Int = 4
+    public let noteLength: Int
 
     /// Unit groups contained in this section.
     ///
     /// > Note: Originally named `unitGroups` in Aguai's C++ code.
-    public var unitGroups: [UnitGroup] = []
+    public let unitGroups: [UnitGroup]
 
-    public var directives: [SectionDirective] = []
+    public let directives: [SectionDirective]
 
     public init(noteLength: Int = 4, unitGroups: [UnitGroup] = [], directives: [SectionDirective] = []) {
         self.noteLength = noteLength
@@ -451,29 +451,29 @@ public struct Paragraph: Equatable {
     /// Paragraph/section name (e.g. `intro`, `A`, `bridge`).
     ///
     /// > Note: Originally named `name` in Aguai's C++ code.
-    public var name: String = ""
+    public let name: String
 
     /// Instrument or track name (e.g. `Guitar`, `CHORD`, `Piano`).
     ///
     /// > Note: Originally named `instrument` in Aguai's C++ code.
-    public var instrument: String = ""
+    public let instrument: String
 
     /// Measure start offset (e.g. `@|0|` starts at measure 0, `@|+4|` starts at
     /// measure 4).
     ///
     /// > Note: Originally named `start` in Aguai's C++ code.
-    public var start: Int = 0
+    public let start: Int
 
     /// Section list contained within this paragraph.
     ///
     /// > Note: Originally named `sections` in Aguai's C++ code.
-    public var sections: [Section] = []
+    public let sections: [Section]
 
     /// Optional show-program time marker used by executable/non-musical blocks.
-    public var executionTime: String?
+    public let executionTime: String?
 
     /// Raw body of a show-program block enclosed by triple quotes.
-    public var showProgram: String?
+    public let showProgram: String?
 
     public init(name: String = "", instrument: String = "", start: Int = 0, sections: [Section] = [], executionTime: String? = nil, showProgram: String? = nil) {
         self.name = name
@@ -520,35 +520,35 @@ public struct Sheet: Equatable {
     /// Song title (syntax enclosed in `** Title **`).
     ///
     /// > Note: Originally named `name` in Aguai's C++ code.
-    public var name: String = ""
+    public let name: String
 
     /// Playback tempo in BPM (syntax denoted by `!= 133`).
     ///
     /// > Note: Originally named `speed` in Aguai's C++ code.
-    public var speed: Double = 0.0
+    public let speed: Double
 
     /// Initial key signature (syntax denoted by `?= A'`).
     ///
     /// > Note: Originally named `keySignature` in Aguai's C++ code.
-    public var keySignature: KeySignature = KeySignature()
+    public let keySignature: KeySignature
 
     /// Time signature (syntax denoted by `<4/4>`).
     ///
     /// > Note: Originally named `beat` in Aguai's C++ code.
-    public var beat: Beat = Beat()
+    public let beat: Beat
 
     /// All instrument paragraphs defined across the sheet.
     ///
     /// > Note: Originally named `paragraphs` in Aguai's C++ code.
-    public var paragraphs: [Paragraph] = []
+    public let paragraphs: [Paragraph]
 
     /// Song structure playback order sequence.
     ///
     /// > Note: Originally named `orders` in Aguai's C++ code.
-    public var orders: [Order] = []
+    public let orders: [Order]
 
     /// Song-level metadata such as lyrics, composer, and arranger credits.
-    public var metadata: [String: String] = [:]
+    public let metadata: [String: String]
 
     public init(
         name: String = "",

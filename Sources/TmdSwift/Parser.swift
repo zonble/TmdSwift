@@ -357,27 +357,28 @@ public final class Lexer {
 
             if isModifier || !isDigit {
                 advance()
-                var note = Note()
-                note.degree = ScaleDegree(rawValue: Int(c.value - UnicodeScalar("0").value))!
+                let degree = ScaleDegree(rawValue: Int(c.value - UnicodeScalar("0").value))!
+                var accidental: Accidental = .natural
+                var octave = 0
                 while !isAtEnd {
                     guard let mod = peek() else { break }
                     if mod == "'" {
-                        note.accidental = .sharp
+                        accidental = .sharp
                         advance()
                     } else if mod == "," {
-                        note.accidental = .flat
+                        accidental = .flat
                         advance()
                     } else if mod == "^" {
-                        note.octave += 1
+                        octave += 1
                         advance()
                     } else if mod == "_" {
-                        note.octave -= 1
+                        octave -= 1
                         advance()
                     } else {
                         break
                     }
                 }
-                return .note(note)
+                return .note(Note(accidental: accidental, degree: degree, octave: octave))
             }
         }
 
@@ -562,7 +563,13 @@ private struct TokenParser {
             return nil
         }
 
-        var sheet = Sheet()
+        var name = ""
+        var speed = 0.0
+        var keySignature = KeySignature()
+        var beat = Beat()
+        var paragraphs: [Paragraph] = []
+        var orders: [Order] = []
+        var metadata: [String: String] = [:]
 
         while current != .eof {
             switch current {
@@ -580,22 +587,22 @@ private struct TokenParser {
                     }
                 }
                 match(.doubleAsterisk)
-                sheet.name = nameParts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+                name = nameParts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
 
             case .metadata(let key, let value):
                 advance()
-                sheet.metadata[key] = value
+                metadata[key] = value
 
             case .speedPrefix:
                 advance()
                 if case .double(let d) = current {
-                    sheet.speed = d
+                    speed = d
                     advance()
                 } else if case .number(let n) = current {
-                    sheet.speed = Double(n)
+                    speed = Double(n)
                     advance()
                 } else if case .positiveNumber(let n) = current {
-                    sheet.speed = Double(n)
+                    speed = Double(n)
                     advance()
                 }
 
@@ -609,23 +616,23 @@ private struct TokenParser {
                     key = String(note.degree.rawValue)
                     advance()
                 }
-                sheet.keySignature = KeySignature(string: key)
+                keySignature = KeySignature(string: key)
 
             case .openAngle:
                 advance()
                 if case .number(let c) = current {
-                    sheet.beat.count = c
+                    beat = Beat(count: c, noteValue: beat.noteValue)
                     advance()
                 } else if case .note(let note) = current {
-                    sheet.beat.count = note.degree.rawValue
+                    beat = Beat(count: note.degree.rawValue, noteValue: beat.noteValue)
                     advance()
                 }
                 match(.slash)
                 if case .number(let n) = current {
-                    sheet.beat.noteValue = n
+                    beat = Beat(count: beat.count, noteValue: n)
                     advance()
                 } else if case .note(let note) = current {
-                    sheet.beat.noteValue = note.degree.rawValue
+                    beat = Beat(count: beat.count, noteValue: note.degree.rawValue)
                     advance()
                 }
                 match(.closeAngle)
@@ -635,7 +642,7 @@ private struct TokenParser {
                 switch current {
                 case .arrowEnd:
                     advance()
-                    return sheet
+                    return Sheet(name: name, speed: speed, keySignature: keySignature, beat: beat, paragraphs: paragraphs, orders: orders, metadata: metadata)
                 case .relativeOrderPrefix:
                     advance()
                     var name = ""
@@ -650,7 +657,7 @@ private struct TokenParser {
                         }
                     }
                     match(.closeBrace)
-                    sheet.orders.append(.relative(name))
+                    orders.append(.relative(name))
                 case .absoluteOrderPrefix:
                     advance()
                     var name = ""
@@ -665,29 +672,29 @@ private struct TokenParser {
                         }
                     }
                     match(.closeBrace)
-                    sheet.orders.append(.absolute(name))
+                    orders.append(.absolute(name))
                 case .identifier(let s):
                     advance()
-                    sheet.orders.append(.name(s))
+                    orders.append(.name(s))
                 default:
                     advance()
                 }
 
             case .arrowEnd:
                 advance()
-                return sheet
+                return Sheet(name: name, speed: speed, keySignature: keySignature, beat: beat, paragraphs: paragraphs, orders: orders, metadata: metadata)
 
             default:
                 // Paragraph: name:instrument@|start|{ ... }
                 if let paragraph = parseParagraph() {
-                    sheet.paragraphs.append(paragraph)
+                    paragraphs.append(paragraph)
                 } else {
                     advance()
                 }
             }
         }
 
-        return sheet
+        return Sheet(name: name, speed: speed, keySignature: keySignature, beat: beat, paragraphs: paragraphs, orders: orders, metadata: metadata)
     }
 
     private mutating func parseParagraph() -> Paragraph? {
