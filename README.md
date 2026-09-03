@@ -19,6 +19,14 @@ TMD is a plain-text musical notation DSL designed by composer and music producer
 - **LilyPond** engraver exporter (`TmdLilyPond`) for publication-grade score typesetting and PDF rendering.
 - A command-line interface (`tmd`) powered by `swift-argument-parser`.
 
+## Platform Support
+
+| Platform | Parser & AST (`TmdSwift`) | MIDI Exporter (`TmdMIDI`) | MusicXML (`TmdMusicXML`) | LilyPond (`TmdLilyPond`) | WAV Audio (`TmdAudio`) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **macOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(Built-in Roland GS DLS / Custom SF2)* |
+| **Linux (Ubuntu)** | ✅ | ✅ | ✅ | ✅ | ⚠️ *(Requires external synth / planned)* |
+| **iOS / iPadOS** | ✅ | ✅ | ✅ | ✅ | ✅ *(CoreAudio / Custom SF2)* |
+
 ## Installation & Build
 
 Requires Swift 6.0+ / Xcode 16+.
