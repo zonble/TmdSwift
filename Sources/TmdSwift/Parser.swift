@@ -7,6 +7,7 @@ public enum Token: Equatable {
     case scoreHeader                 // ::SCORE::
     case doubleAsterisk              // **
     case speedPrefix                 // !=
+    case relativeTempoPrefix         // !+
     case keySignaturePrefix          // ?=
     case openAngle                   // <
     case slash                       // /
@@ -26,9 +27,13 @@ public enum Token: Equatable {
     case absoluteOrderPrefix         // {?=
 
     case number(Int)                 // e.g. 120, 4, 16
+    case positiveNumber(Int)         // e.g. +4, +30
     case double(Double)              // e.g. 120.0
     case note(Note)                  // e.g. 1, 1', 1,, 1^, 1_
     case chord(String)               // e.g. [Cmaj7], [1], [6m]
+    case percussion(String)           // e.g. XsTt
+    case metadata(String, String)     // metadata key and value
+    case programText(String)           // triple-quoted show-program body
     case tie                         // -
     case identifier(String)          // e.g. Piano, intro, C, A'
     case eof
@@ -103,6 +108,16 @@ public final class Lexer {
             return .eof
         }
 
+        if c == "\"" && peek(offset: 1) == "\"" && peek(offset: 2) == "\"" {
+            advance(); advance(); advance()
+            var body = ""
+            while !isAtEnd && !(peek() == "\"" && peek(offset: 1) == "\"" && peek(offset: 2) == "\"") {
+                body.append(Character(advance()!))
+            }
+            if !isAtEnd { advance(); advance(); advance() }
+            return .programText(body)
+        }
+
         // ::SCORE::
         if c == ":" && peek(offset: 1) == ":" {
             var prefix = ""
@@ -114,6 +129,43 @@ public final class Lexer {
             if prefix == "::SCORE::" {
                 for _ in 0..<9 { advance() }
                 return .scoreHeader
+            }
+        }
+
+        // Song metadata. Credit shorthand uses `~ "..."`; named metadata uses
+        // `=~:__KEY__= "..."`.
+        if c == "~" || (c == "=" && peek(offset: 1) == "~") {
+            let named = c == "="
+            if named { advance(); advance() } else { advance() }
+            while peek() == " " || peek() == "\t" { advance() }
+            var key = "credit"
+            if named {
+                if peek() == ":" { advance() }
+                while peek() == " " || peek() == "\t" { advance() }
+                if peek() == "_" {
+                    while peek() == "_" { advance() }
+                    key = ""
+                    while let ch = peek(), ch != "_" && ch != "=" && ch != " " && ch != "\t" && ch != "\"" {
+                        key.append(Character(advance()!))
+                    }
+                    while peek() == "_" { advance() }
+                    if peek() == "=" { advance() }
+                }
+            }
+            while peek() == " " || peek() == "\t" { advance() }
+            if peek() == "\"" {
+                advance()
+                var value = ""
+                while let ch = peek(), ch != "\"" {
+                    value.append(Character(advance()!))
+                }
+                if peek() == "\"" { advance() }
+                if key == "credit" {
+                    if value.hasPrefix("詞：") { key = "lyrics" }
+                    else if value.hasPrefix("曲：") { key = "composer" }
+                    else if value.hasPrefix("編：") { key = "arranger" }
+                }
+                return .metadata(key, value)
             }
         }
 
@@ -154,6 +206,10 @@ public final class Lexer {
             if peek(offset: offset) == "=" {
                 for _ in 0...offset { advance() }
                 return .speedPrefix
+            }
+            if peek(offset: offset) == "+" {
+                for _ in 0...offset { advance() }
+                return .relativeTempoPrefix
             }
         }
 
@@ -290,7 +346,7 @@ public final class Lexer {
             if hasDot, let d = Double(numStr) {
                 return .double(d)
             } else if let i = Int(numStr) {
-                return .number(i)
+                return c == "+" ? .positiveNumber(i) : .number(i)
             }
         }
 
@@ -407,6 +463,7 @@ private struct TokenParser {
                     switch advance() {
                     case .identifier(let s): nameParts.append(s)
                     case .number(let n): nameParts.append(String(n))
+                    case .positiveNumber(let n): nameParts.append(String(n))
                     case .note(let note): nameParts.append(String(note.degree))
                     default: break
                     }
@@ -414,12 +471,19 @@ private struct TokenParser {
                 match(.doubleAsterisk)
                 sheet.name = nameParts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
 
+            case .metadata(let key, let value):
+                advance()
+                sheet.metadata[key] = value
+
             case .speedPrefix:
                 advance()
                 if case .double(let d) = current {
                     sheet.speed = d
                     advance()
                 } else if case .number(let n) = current {
+                    sheet.speed = Double(n)
+                    advance()
+                } else if case .positiveNumber(let n) = current {
                     sheet.speed = Double(n)
                     advance()
                 }
@@ -468,6 +532,7 @@ private struct TokenParser {
                         switch advance() {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
+                        case .positiveNumber(let n): name += "+\(n)"
                         case .note(let note): name += String(note.degree)
                         case .tie: name += "-"
                         default: break
@@ -482,6 +547,7 @@ private struct TokenParser {
                         switch advance() {
                         case .identifier(let s): name += s
                         case .number(let n): name += String(n)
+                        case .positiveNumber(let n): name += "+\(n)"
                         case .note(let note): name += String(note.degree)
                         case .tie: name += "-"
                         default: break
@@ -531,8 +597,24 @@ private struct TokenParser {
         guard match(.at) else { return nil }
 
         var start = 0
+        var executionTime: String?
         if match(.pipe) {
-            if case .number(let n) = current {
+            if current == .tie {
+                advance()
+                if case .number(let n) = current {
+                    start = -n
+                    advance()
+                } else if case .note(let note) = current {
+                    start = -note.degree
+                    advance()
+                } else if case .positiveNumber(let n) = current {
+                    start = n
+                    advance()
+                }
+            } else if case .number(let n) = current {
+                start = n
+                advance()
+            } else if case .positiveNumber(let n) = current {
                 start = n
                 advance()
             } else if case .note(let note) = current {
@@ -540,9 +622,18 @@ private struct TokenParser {
                 advance()
             }
             match(.pipe)
+        } else if case .identifier(let time) = current {
+            executionTime = time
+            advance()
         }
 
         guard match(.openBrace) else { return nil }
+
+        if case .programText(let body) = current {
+            advance()
+            match(.closeBrace)
+            return Paragraph(name: name, instrument: instrument, start: start, sections: [], executionTime: executionTime, showProgram: body)
+        }
 
         var sections: [Section] = []
         while current != .closeBrace && current != .eof {
@@ -556,15 +647,35 @@ private struct TokenParser {
                 } else if case .note(let note) = current {
                     noteLength = note.degree
                     advance()
+                } else if current == .asterisk {
+                    // Legacy spelling: <*1>
+                    advance()
+                    if case .number(let n) = current {
+                        noteLength = n
+                        advance()
+                    } else if case .note(let note) = current {
+                        noteLength = note.degree
+                        advance()
+                    }
                 }
                 match(.asterisk)
                 match(.closeAngle)
 
                 var unitGroups: [UnitGroup] = []
+                var directives: [SectionDirective] = []
                 while current != .openAngle && current != .closeBrace && current != .eof {
                     skipPipes()
                     if current == .openAngle || current == .closeBrace || current == .eof {
                         break
+                    }
+
+                    if current == .openBrace || current == .relativeOrderPrefix || current == .absoluteOrderPrefix || current == .keySignaturePrefix || current == .relativeTempoPrefix {
+                        if let directive = parseSectionDirective(position: unitGroups.reduce(0) { $0 + $1.length }) {
+                            directives.append(directive)
+                        } else {
+                            advance()
+                        }
+                        continue
                     }
 
                     if match(.openParen) {
@@ -597,14 +708,14 @@ private struct TokenParser {
                         advance()
                     }
                 }
-                sections.append(Section(noteLength: noteLength, unitGroups: unitGroups))
+                sections.append(Section(noteLength: noteLength, unitGroups: unitGroups, directives: directives))
             } else {
                 advance()
             }
         }
         match(.closeBrace)
 
-        return Paragraph(name: name, instrument: instrument, start: start, sections: sections)
+        return Paragraph(name: name, instrument: instrument, start: start, sections: sections, executionTime: executionTime)
     }
 
     private mutating func parseUnit() -> Unit? {
@@ -619,8 +730,101 @@ private struct TokenParser {
         case .tie:
             advance()
             return .tie
+        case .number(0):
+            advance()
+            return .rest
+        case .percussion(let pattern):
+            advance()
+            return .percussion(pattern)
+        case .identifier(let value) where !value.isEmpty && value.allSatisfy({ "XxTtSs".contains($0) }):
+            advance()
+            return .percussion(value)
         default:
             return nil
         }
+    }
+
+    private mutating func parseSectionDirective(position: Int) -> SectionDirective? {
+        let startsWithBrace = match(.openBrace)
+        guard startsWithBrace || current == .relativeOrderPrefix || current == .absoluteOrderPrefix || current == .keySignaturePrefix || current == .relativeTempoPrefix else { return nil }
+        // `{?` and `{?=` are emitted as single lexer tokens which already
+        // consume the opening brace; all directive forms still end in `}`.
+        defer { match(.closeBrace) }
+
+        switch current {
+        case .relativeTempoPrefix:
+            advance()
+            if case .number(let value) = current {
+                advance()
+                return SectionDirective(position: position, kind: .relativeTempo(Double(value)))
+            }
+            if case .double(let value) = current {
+                advance()
+                return SectionDirective(position: position, kind: .relativeTempo(value))
+            }
+        case .speedPrefix:
+            advance()
+            if case .double(let value) = current {
+                advance()
+                return SectionDirective(position: position, kind: .tempo(value))
+            }
+            if case .positiveNumber(let value) = current {
+                advance()
+                return SectionDirective(position: position, kind: .relativeTempo(Double(value)))
+            }
+            if case .number(let value) = current {
+                advance()
+                return SectionDirective(position: position, kind: .tempo(Double(value)))
+            }
+        case .relativeOrderPrefix:
+            advance()
+            var value = ""
+            while current != .closeBrace && current != .eof {
+                switch advance() {
+                case .number(let n): value += String(n)
+                case .positiveNumber(let n): value += "+\(n)"
+                case .note(let n): value += String(n.degree)
+                case .identifier(let s): value += s
+                case .tie: value += "-"
+                default: break
+                }
+            }
+            if let delta = Int(value) {
+                return SectionDirective(position: position, kind: .relativeKey(delta))
+            }
+        case .absoluteOrderPrefix:
+            advance()
+            var value = ""
+            while current != .closeBrace && current != .eof {
+                switch advance() {
+                case .identifier(let s): value += s
+                case .number(let n): value += String(n)
+                case .positiveNumber(let n): value += "+\(n)"
+                case .note(let n): value += String(n.degree)
+                default: break
+                }
+            }
+            return SectionDirective(position: position, kind: .absoluteKey(value))
+        case .keySignaturePrefix:
+            advance()
+            var value = ""
+            if case .identifier(let s) = current { value = s; advance() }
+            else if case .note(let n) = current { value = String(n.degree); advance() }
+            return SectionDirective(position: position, kind: .absoluteKey(value))
+        case .openAngle:
+            advance()
+            var count = 4
+            var noteValue = 4
+            if case .number(let n) = current { count = n; advance() }
+            else if case .note(let n) = current { count = n.degree; advance() }
+            match(.slash)
+            if case .number(let n) = current { noteValue = n; advance() }
+            else if case .note(let n) = current { noteValue = n.degree; advance() }
+            match(.closeAngle)
+            return SectionDirective(position: position, kind: .timeSignature(Beat(count: count, noteValue: noteValue)))
+        default:
+            break
+        }
+        return nil
     }
 }

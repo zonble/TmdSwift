@@ -1,5 +1,9 @@
 # 樂隊簡譜語法 Band-Score Syntax
 
+> 本文件是原始 TMDLang 的設計／歷史筆記，保留早期構想與尚未定案的語法。
+> TmdSwift 目前可實作的正式語法請參閱
+> [`TMD-Language-Specification.zh-TW.md`](TMD-Language-Specification.zh-TW.md)。
+
 ## 基礎語法
 
 ``` 

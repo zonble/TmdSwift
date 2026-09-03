@@ -41,6 +41,15 @@ extension Sheet {
         result += "?=\(keySignature)\n"
         result += "<\(beat.count)/\(beat.noteValue)>\n\n"
 
+        for (key, value) in metadata.sorted(by: { $0.key < $1.key }) {
+            if ["lyrics", "composer", "arranger"].contains(key.lowercased()) {
+                result += "~ \"\(value)\"\n"
+            } else {
+                result += "=~:__\(key.uppercased())__= \"\(value)\"\n"
+            }
+        }
+        if !metadata.isEmpty { result += "\n" }
+
         for paragraph in paragraphs {
             result += paragraph.format()
         }
@@ -95,6 +104,10 @@ extension Unit {
             return "[\(ch)]"
         case .tie:
             return "-"
+        case .rest:
+            return "0"
+        case .percussion(let pattern):
+            return pattern
         }
     }
 }
@@ -117,6 +130,16 @@ extension Section {
     public func format() -> String {
         var result = "\t<\(noteLength)*>"
         var counter = 0
+        var directiveIndex = 0
+        let sortedDirectives = directives.sorted { $0.position < $1.position }
+        func appendDirectives(at position: Int, to result: inout String) {
+            while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == position {
+                result += "\(sortedDirectives[directiveIndex].format()) "
+                directiveIndex += 1
+            }
+        }
+        var position = 0
+        appendDirectives(at: position, to: &result)
         for unitGroup in unitGroups {
             if counter % 8 == 0 || counter >= 8 {
                 result += "\n\t"
@@ -124,15 +147,42 @@ extension Section {
             }
             result += "\(unitGroup.format()) "
             counter += unitGroup.length
+            position += unitGroup.length
+            appendDirectives(at: position, to: &result)
+        }
+        while directiveIndex < sortedDirectives.count {
+            result += "\(sortedDirectives[directiveIndex].format()) "
+            directiveIndex += 1
         }
         result += "\n\n"
         return result
     }
 }
 
+extension SectionDirective {
+    public func format() -> String {
+        switch kind {
+        case .tempo(let value):
+            return "{!=\(value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value))}"
+        case .relativeTempo(let value):
+            return "{!+\(value)}"
+        case .absoluteKey(let key):
+            return "{?=\(key)}"
+        case .relativeKey(let value):
+            return "{?\(value >= 0 ? "+\(value)" : String(value))}"
+        case .timeSignature(let beat):
+            return "{<\(beat.count)/\(beat.noteValue)>}"
+        }
+    }
+}
+
 extension Paragraph {
     /// Formats paragraph into TMD representation.
     public func format() -> String {
+        if let showProgram {
+            let time = executionTime ?? ""
+            return "\(name):\(instrument)@\(time){\n\"\"\"\(showProgram)\"\"\"\n}\n\n"
+        }
         var result = "\(name):\(instrument)@|"
         if start > 0 {
             result += "+\(start)"

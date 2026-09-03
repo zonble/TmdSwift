@@ -9,6 +9,10 @@ public struct TMDMusicXMLGenerator {
 
     /// Generates MusicXML UTF-8 string from a Sheet.
     public static func generateMusicXML(from sheet: Sheet) -> String {
+        let metadataCreators = sheet.metadata.sorted { $0.key < $1.key }.map { key, value in
+            let type = key.lowercased() == "lyrics" ? "lyricist" : (key.lowercased() == "arranger" ? "arranger" : "composer")
+            return "    <creator type=\"\(type)\">\(escapeXML(value))</creator>"
+        }.joined(separator: "\n")
         var xml = """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">
@@ -18,6 +22,7 @@ public struct TMDMusicXMLGenerator {
           </work>
           <identification>
             <creator type="composer">TMD</creator>
+        \(metadataCreators)
             <encoding>
               <software>TmdSwift MusicXML Exporter</software>
             </encoding>
@@ -177,6 +182,7 @@ public struct TMDMusicXMLGenerator {
         if isFirstMeasure {
             m += generateAttributesXML(sheet: sheet, divisions: divisions)
         }
+        m += generateDirectivesXML(section.directives)
 
         let baseNoteDivisions = (divisions * 4) / max(1, section.noteLength)
 
@@ -189,7 +195,19 @@ public struct TMDMusicXMLGenerator {
 
             """
         } else {
+            var localKeyOffset = keyOffset
+            var sectionPosition = 0
+            var directiveIndex = 0
+            let sortedDirectives = section.directives.sorted { $0.position < $1.position }
             for unitGroup in section.unitGroups {
+                while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
+                    switch sortedDirectives[directiveIndex].kind {
+                    case .relativeKey(let delta): localKeyOffset += delta
+                    case .absoluteKey(let key): localKeyOffset = parseKeySignatureSemitones(key)
+                    default: break
+                    }
+                    directiveIndex += 1
+                }
                 let groupDivisions = unitGroup.length * baseNoteDivisions
                 let activeUnits = unitGroup.units.filter { $0 != .tie }
 
@@ -207,19 +225,90 @@ public struct TMDMusicXMLGenerator {
                     for unit in activeUnits {
                         switch unit {
                         case .note(let note):
-                            m += generateNoteXML(note: note, duration: subDuration, keyOffset: keyOffset)
+                            m += generateNoteXML(note: note, duration: subDuration, keyOffset: localKeyOffset)
                         case .chord(let chordName):
-                            m += generateChordXML(chordName: chordName, duration: subDuration, keyOffset: keyOffset)
+                            m += generateChordXML(chordName: chordName, duration: subDuration, keyOffset: localKeyOffset)
                         case .tie:
                             break
+                        case .rest:
+                            m += """
+                                    <note>
+                                      <rest/>
+                                      <duration>\(subDuration)</duration>
+                                    </note>
+
+                            """
+                        case .percussion(let pattern):
+                            m += generatePercussionXML(pattern: pattern, duration: subDuration)
                         }
                     }
                 }
+                sectionPosition += unitGroup.length
             }
         }
 
         m += "    </measure>\n"
         return m
+    }
+
+    private static func generateDirectivesXML(_ directives: [SectionDirective]) -> String {
+        var result = ""
+        for directive in directives {
+            switch directive.kind {
+            case .tempo(let value), .relativeTempo(let value):
+                result += """
+                        <direction placement="above">
+                          <direction-type>
+                            <metronome>
+                              <beat-unit>quarter</beat-unit>
+                              <per-minute>\(Int(value.rounded()))</per-minute>
+                            </metronome>
+                          </direction-type>
+                          <sound tempo="\(value)"/>
+                        </direction>
+
+                """
+            case .timeSignature(let beat):
+                result += """
+                        <attributes>
+                          <time>
+                            <beats>\(beat.count)</beats>
+                            <beat-type>\(beat.noteValue)</beat-type>
+                          </time>
+                        </attributes>
+
+                """
+            case .absoluteKey(let key):
+                result += "        <attributes><key><fifths>\(keySignatureToFifths(key))</fifths></key></attributes>\n"
+            case .relativeKey:
+                result += "        <!-- TMD relative key modulation -->\n"
+            }
+        }
+        return result
+    }
+
+    private static func generatePercussionXML(pattern: String, duration: Int) -> String {
+        let notes = pattern.compactMap { character -> (String, Int)? in
+            switch character {
+            case "X", "x": return ("F", 5) // closed hi-hat, MIDI 42
+            case "T", "t": return ("A", 4) // low tom, MIDI 45
+            case "S", "s": return ("D", 5) // snare, MIDI 38
+            default: return nil
+            }
+        }
+        let noteDuration = max(1, duration / max(1, notes.count))
+        return notes.map { step, octave in
+            """
+                    <note>
+                      <unpitched>
+                        <display-step>\(step)</display-step>
+                        <display-octave>\(octave)</display-octave>
+                      </unpitched>
+                      <duration>\(noteDuration)</duration>
+                    </note>
+
+            """
+        }.joined()
     }
 
     private static func generateAttributesXML(sheet: Sheet, divisions: Int) -> String {

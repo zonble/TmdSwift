@@ -255,4 +255,100 @@ import TmdABC
     #expect(abc.contains("V:V1 name=\"Piano\""))
 }
 
+@Test func testExtendedTMDSyntax() throws {
+    let tmd = """
+    ::SCORE::
+    ** Extended **
+    != 120
+    ?= C
+    <4/4>
+    ~ "詞：阿怪"
+    =~:__ARR__= "編曲者"
 
+    A:Vocal@|-1|{
+        <16*>
+        0--- 1 2 3
+        {!= 140}
+        {!+10}
+        {?+2}
+        {<3/4>}
+    }
+    A:Drums@|0|{
+        <16*>
+        XsTt x--
+    }
+    -> A ->#
+    """
+
+    let sheet = TmdParser.parse(string: tmd)
+    #expect(sheet != nil)
+    guard let sheet else { return }
+
+    #expect(sheet.metadata["lyrics"] == "詞：阿怪")
+    #expect(sheet.metadata["ARR"] == "編曲者")
+    #expect(sheet.paragraphs[0].start == -1)
+    #expect(sheet.paragraphs[0].sections[0].unitGroups[0].units[0] == .rest)
+    #expect(sheet.paragraphs[1].sections[0].unitGroups[0].units[0] == .percussion("XsTt"))
+    #expect(sheet.paragraphs[0].sections[0].directives == [
+        SectionDirective(position: 7, kind: .tempo(140)),
+        SectionDirective(position: 7, kind: .relativeTempo(10)),
+        SectionDirective(position: 7, kind: .relativeKey(2)),
+        SectionDirective(position: 7, kind: .timeSignature(Beat(count: 3, noteValue: 4)))
+    ])
+
+    let reparsed = TmdParser.parse(string: sheet.format())
+    #expect(reparsed?.metadata == sheet.metadata)
+    #expect(reparsed?.paragraphs[0].start == -1)
+    #expect(reparsed?.paragraphs[0].sections[0].directives == sheet.paragraphs[0].sections[0].directives)
+
+    let midi = TMDMIDIGenerator.generateMIDI(from: sheet)
+    #expect(midi.contains(0x99))
+    #expect(midi.contains(0x51)) // tempo meta event
+    #expect(midi.contains(0x58)) // time-signature meta event
+    #expect(midi.range(of: Data([0xFF, 0x51, 0x03, 0x06, 0x1A, 0x80])) != nil) // 150 BPM
+    let musicXML = TMDMusicXMLGenerator.generateMusicXML(from: sheet)
+    #expect(musicXML.contains("<per-minute>140</per-minute>"))
+    #expect(musicXML.contains("<beats>3</beats>"))
+    #expect(musicXML.contains("<unpitched>"))
+    let lilyPond = TMDLilyPondGenerator.generateLilyPond(from: sheet)
+    #expect(lilyPond.contains("\\tempo 4 = 140"))
+    #expect(lilyPond.contains("\\time 3/4"))
+    #expect(lilyPond.contains("\\new DrumStaff"))
+    let abc = TMDABCGenerator.generateABC(from: sheet)
+    #expect(abc.contains("Q:1/4=140"))
+    #expect(abc.contains("M:3/4"))
+    #expect(abc.contains("%%MIDI channel 10"))
+}
+
+@Test func testLegacySectionMarkerSyntax() throws {
+    let tmd = """
+    ::SCORE:: ** Legacy ** != 120 ?= C <4/4>
+    A:Piano@{ <*1> 1 2 3 4 }
+    -> A ->#
+    """
+
+    let sheet = TmdParser.parse(string: tmd)
+    #expect(sheet != nil)
+    #expect(sheet?.paragraphs.first?.sections.first?.noteLength == 1)
+}
+
+@Test func testShowProgramBlock() throws {
+    let tmd = #"""
+    ::SCORE::
+    ** Show **
+    show:Lighting@intro{
+    """
+    cue black
+    wait 4
+    """
+    }
+    -> show ->#
+    """#
+
+    let sheet = TmdParser.parse(string: tmd)
+    #expect(sheet?.paragraphs.first?.executionTime == "intro")
+    #expect(sheet?.paragraphs.first?.instrument == "Lighting")
+    #expect(sheet?.paragraphs.first?.showProgram?.contains("cue black") == true)
+    #expect(sheet?.format().contains("\"\"\"") == true)
+    #expect(sheet?.format().contains("cue black") == true)
+}

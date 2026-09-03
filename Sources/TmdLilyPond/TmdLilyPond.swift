@@ -9,12 +9,13 @@ public struct TMDLilyPondGenerator {
 
     /// Generates LilyPond `.ly` file content from a Sheet.
     public static func generateLilyPond(from sheet: Sheet) -> String {
+        let composer = sheet.metadata["composer"] ?? "TMD"
         var ly = """
         \\version "2.24.0"
 
         \\header {
           title = "\(escapeLilyPond(sheet.name.isEmpty ? "Untitled" : sheet.name))"
-          composer = "TMD"
+          composer = "\(escapeLilyPond(composer))"
           tagline = "Engraved by TmdSwift LilyPond Exporter"
         }
 
@@ -45,9 +46,10 @@ public struct TMDLilyPondGenerator {
         // Generate track music definitions for each instrument
         for (idx, inst) in instruments.enumerated() {
             let varName = sanitizeIdentifier(inst, index: idx)
-            ly += "\(varName) = {\n"
+            let isDrum = paragraphsContainPercussion(sheet.paragraphs, instrument: inst)
+            ly += "\(varName) = \(isDrum ? "\\drummode " : ""){\n"
             ly += "  \\global\n"
-            ly += generateTrackMusic(instrument: inst, sheet: sheet, orders: orders)
+            ly += generateTrackMusic(instrument: inst, sheet: sheet, orders: orders, percussion: isDrum)
             ly += "}\n\n"
         }
 
@@ -56,8 +58,10 @@ public struct TMDLilyPondGenerator {
         ly += "  <<\n"
         for (idx, inst) in instruments.enumerated() {
             let varName = sanitizeIdentifier(inst, index: idx)
+            let isDrum = paragraphsContainPercussion(sheet.paragraphs, instrument: inst)
+            let staffType = isDrum ? "DrumStaff" : "Staff"
             ly += """
-                \\new Staff = "\(escapeLilyPond(inst))" \\with {
+                \\new \(staffType) = "\(escapeLilyPond(inst))" \\with {
                   instrumentName = "\(escapeLilyPond(inst))"
                   shortInstrumentName = "\(escapeLilyPond(inst.prefix(3).description))"
                 } {
@@ -77,7 +81,8 @@ public struct TMDLilyPondGenerator {
     private static func generateTrackMusic(
         instrument: String,
         sheet: Sheet,
-        orders: [Order]
+        orders: [Order],
+        percussion: Bool
     ) -> String {
         var result = ""
         let rootOffset = parseKeySignatureSemitones(sheet.keySignature)
@@ -106,7 +111,8 @@ public struct TMDLilyPondGenerator {
                 for section in paragraph.sections {
                     result += generateSectionMusic(
                         section: section,
-                        keyOffset: totalKeyOffset
+                        keyOffset: totalKeyOffset,
+                        percussion: percussion
                     )
                     result += " |\n"
                 }
@@ -115,15 +121,40 @@ public struct TMDLilyPondGenerator {
         return result
     }
 
-    private static func generateSectionMusic(section: Section, keyOffset: Int) -> String {
+    private static func generateSectionMusic(section: Section, keyOffset: Int, percussion: Bool = false) -> String {
         var tokens: [String] = []
         let baseDuration = section.noteLength // e.g. 16 for 16th note, 4 for quarter note
+
+        for directive in section.directives {
+            switch directive.kind {
+            case .tempo(let value), .relativeTempo(let value):
+                tokens.append("\\tempo 4 = \(Int(value.rounded()))")
+            case .timeSignature(let beat):
+                tokens.append("\\time \(beat.count)/\(beat.noteValue)")
+            case .absoluteKey(let key):
+                tokens.append("\\key \(lilyPondKey(key))")
+            case .relativeKey:
+                tokens.append("% TMD relative key modulation")
+            }
+        }
 
         if section.unitGroups.isEmpty {
             return "  r4"
         }
 
+        var localKeyOffset = keyOffset
+        var sectionPosition = 0
+        var directiveIndex = 0
+        let sortedDirectives = section.directives.sorted { $0.position < $1.position }
         for unitGroup in section.unitGroups {
+            while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
+                switch sortedDirectives[directiveIndex].kind {
+                case .relativeKey(let delta): localKeyOffset += delta
+                case .absoluteKey(let key): localKeyOffset = parseKeySignatureSemitones(key)
+                default: break
+                }
+                directiveIndex += 1
+            }
             let activeUnits = unitGroup.units.filter { $0 != .tie }
 
             if activeUnits.isEmpty {
@@ -133,7 +164,7 @@ public struct TMDLilyPondGenerator {
             } else if activeUnits.count == 1 && unitGroup.length == 1 {
                 // Single note or chord
                 let dur = "\(baseDuration)"
-                tokens.append(formatUnit(activeUnits[0], duration: dur, keyOffset: keyOffset))
+                tokens.append(formatUnit(activeUnits[0], duration: dur, keyOffset: localKeyOffset, percussion: percussion))
             } else {
                 // Tuplet or multiple units over span
                 let tupletActual = activeUnits.count
@@ -141,7 +172,7 @@ public struct TMDLilyPondGenerator {
                 let dur = "\(baseDuration)"
                 var groupTokens: [String] = []
                 for u in activeUnits {
-                    groupTokens.append(formatUnit(u, duration: dur, keyOffset: keyOffset))
+                    groupTokens.append(formatUnit(u, duration: dur, keyOffset: localKeyOffset, percussion: percussion))
                 }
 
                 if tupletActual != tupletNormal {
@@ -150,12 +181,13 @@ public struct TMDLilyPondGenerator {
                     tokens.append(contentsOf: groupTokens)
                 }
             }
+            sectionPosition += unitGroup.length
         }
 
         return "  " + tokens.joined(separator: " ")
     }
 
-    private static func formatUnit(_ unit: TmdSwift.Unit, duration: String, keyOffset: Int) -> String {
+    private static func formatUnit(_ unit: TmdSwift.Unit, duration: String, keyOffset: Int, percussion: Bool = false) -> String {
         switch unit {
         case .note(let note):
             let pitchName = noteToLilyPondPitch(note, keyOffset: keyOffset)
@@ -172,6 +204,28 @@ public struct TMDLilyPondGenerator {
             }
         case .tie:
             return "r\(duration)"
+        case .rest:
+            return "r\(duration)"
+        case .percussion(let pattern):
+            let names = pattern.compactMap { character -> String? in
+                switch character {
+                case "X", "x": return "hh"
+                case "T", "t": return "toml"
+                case "S", "s": return "sn"
+                default: return nil
+                }
+            }
+            return names.map { "\($0)\(duration)" }.joined(separator: " ")
+        }
+    }
+
+    private static func paragraphsContainPercussion(_ paragraphs: [Paragraph], instrument: String) -> Bool {
+        paragraphs.filter { $0.instrument == instrument }.contains { paragraph in
+            paragraph.sections.contains { section in
+                section.unitGroups.contains { group in
+                    group.units.contains { if case .percussion = $0 { return true }; return false }
+                }
+            }
         }
     }
 

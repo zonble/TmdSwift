@@ -90,6 +90,12 @@ public enum Unit: Equatable {
     ///
     /// > Note: Originally represented as `UnitType::Copy` in Aguai's C++ code.
     case tie
+
+    /// A rest. The source syntax is `0`; repeated dashes may extend it.
+    case rest
+
+    /// A percussion pattern using the original TMD character vocabulary.
+    case percussion(String)
 }
 
 /// A rhythmic unit group or tuplet grouping.
@@ -116,6 +122,26 @@ public struct UnitGroup: Equatable {
     }
 }
 
+/// A local change in tempo, key, or meter occurring inside a section.
+public enum SectionDirectiveKind: Equatable {
+    case tempo(Double)
+    case relativeTempo(Double)
+    case absoluteKey(String)
+    case relativeKey(Int)
+    case timeSignature(Beat)
+}
+
+public struct SectionDirective: Equatable {
+    /// Position measured in section base units, before the directive.
+    public var position: Int
+    public var kind: SectionDirectiveKind
+
+    public init(position: Int, kind: SectionDirectiveKind) {
+        self.position = position
+        self.kind = kind
+    }
+}
+
 /// A section or measure segment defining base note subdivision (e.g. `<16*>`)
 /// and unit groups.
 ///
@@ -133,9 +159,12 @@ public struct Section: Equatable {
     /// > Note: Originally named `unitGroups` in Aguai's C++ code.
     public var unitGroups: [UnitGroup] = []
 
-    public init(noteLength: Int = 4, unitGroups: [UnitGroup] = []) {
+    public var directives: [SectionDirective] = []
+
+    public init(noteLength: Int = 4, unitGroups: [UnitGroup] = [], directives: [SectionDirective] = []) {
         self.noteLength = noteLength
         self.unitGroups = unitGroups
+        self.directives = directives
     }
 }
 
@@ -168,11 +197,19 @@ public struct Paragraph: Equatable {
     /// > Note: Originally named `sections` in Aguai's C++ code.
     public var sections: [Section] = []
 
-    public init(name: String = "", instrument: String = "", start: Int = 0, sections: [Section] = []) {
+    /// Optional show-program time marker used by executable/non-musical blocks.
+    public var executionTime: String?
+
+    /// Raw body of a show-program block enclosed by triple quotes.
+    public var showProgram: String?
+
+    public init(name: String = "", instrument: String = "", start: Int = 0, sections: [Section] = [], executionTime: String? = nil, showProgram: String? = nil) {
         self.name = name
         self.instrument = instrument
         self.start = start
         self.sections = sections
+        self.executionTime = executionTime
+        self.showProgram = showProgram
     }
 }
 
@@ -238,13 +275,17 @@ public struct Sheet: Equatable {
     /// > Note: Originally named `orders` in Aguai's C++ code.
     public var orders: [Order] = []
 
+    /// Song-level metadata such as lyrics, composer, and arranger credits.
+    public var metadata: [String: String] = [:]
+
     public init(
         name: String = "",
         speed: Double = 0.0,
         keySignature: String = "C",
         beat: Beat = Beat(),
         paragraphs: [Paragraph] = [],
-        orders: [Order] = []
+        orders: [Order] = [],
+        metadata: [String: String] = [:]
     ) {
         self.name = name
         self.speed = speed
@@ -252,6 +293,6 @@ public struct Sheet: Equatable {
         self.beat = beat
         self.paragraphs = paragraphs
         self.orders = orders
+        self.metadata = metadata
     }
 }
-

@@ -14,7 +14,7 @@ public struct TMDABCGenerator {
         // Header fields
         abc += "X:1\n"
         abc += "T:\(sheet.name.isEmpty ? "Untitled" : sheet.name)\n"
-        abc += "C:TMD (Chen, Chih-Han / aguai)\n"
+        abc += "C:\(sheet.metadata["composer"] ?? "TMD (Chen, Chih-Han / aguai)")\n"
         abc += "M:\(sheet.beat.count)/\(sheet.beat.noteValue)\n"
         abc += "L:1/16\n" // Base unit length = 16th note for high rhythm precision
         abc += "Q:1/4=\(Int(sheet.speed > 0 ? sheet.speed : 120))\n"
@@ -42,6 +42,9 @@ public struct TMDABCGenerator {
         for (idx, inst) in instruments.enumerated() {
             let vId = "V\(idx + 1)"
             abc += "[V:\(vId)]\n"
+            if paragraphsContainPercussion(sheet.paragraphs, instrument: inst) {
+                abc += "%%MIDI channel 10\n"
+            }
             abc += generateTrackMusic(instrument: inst, sheet: sheet, orders: orders)
             abc += "\n\n"
         }
@@ -99,11 +102,36 @@ public struct TMDABCGenerator {
         // In L:1/16, 16th note has multiplier 1. Quarter note (4) has multiplier 4.
         let base16thMultiplier = max(1, 16 / max(1, section.noteLength))
 
+        for directive in section.directives {
+            switch directive.kind {
+            case .tempo(let value), .relativeTempo(let value):
+                tokens.append("Q:1/4=\(Int(value.rounded()))")
+            case .timeSignature(let beat):
+                tokens.append("M:\(beat.count)/\(beat.noteValue)")
+            case .absoluteKey(let key):
+                tokens.append("K:\(abcKey(key))")
+            case .relativeKey:
+                tokens.append("% TMD relative key modulation")
+            }
+        }
+
         if section.unitGroups.isEmpty {
             return "z4"
         }
 
+        var localKeyOffset = keyOffset
+        var sectionPosition = 0
+        var directiveIndex = 0
+        let sortedDirectives = section.directives.sorted { $0.position < $1.position }
         for unitGroup in section.unitGroups {
+            while directiveIndex < sortedDirectives.count && sortedDirectives[directiveIndex].position == sectionPosition {
+                switch sortedDirectives[directiveIndex].kind {
+                case .relativeKey(let delta): localKeyOffset += delta
+                case .absoluteKey(let key): localKeyOffset = parseKeySignatureSemitones(key)
+                default: break
+                }
+                directiveIndex += 1
+            }
             let totalMultiplier = unitGroup.length * base16thMultiplier
             let activeUnits = unitGroup.units.filter { $0 != .tie }
 
@@ -113,7 +141,7 @@ public struct TMDABCGenerator {
                 tokens.append("z\(multStr)")
             } else if activeUnits.count == 1 {
                 let multStr = totalMultiplier > 1 ? "\(totalMultiplier)" : ""
-                tokens.append(formatUnit(activeUnits[0], multiplier: multStr, keyOffset: keyOffset))
+                tokens.append(formatUnit(activeUnits[0], multiplier: multStr, keyOffset: localKeyOffset))
             } else {
                 // Tuplet: (p:q:r means p notes in the time of q)
                 let p = activeUnits.count
@@ -122,9 +150,10 @@ public struct TMDABCGenerator {
                 let subMult = max(1, totalMultiplier / p)
                 let subMultStr = subMult > 1 ? "\(subMult)" : ""
                 for u in activeUnits {
-                    tokens.append(formatUnit(u, multiplier: subMultStr, keyOffset: keyOffset))
+                    tokens.append(formatUnit(u, multiplier: subMultStr, keyOffset: localKeyOffset))
                 }
             }
+            sectionPosition += unitGroup.length
         }
 
         return tokens.joined(separator: " ")
@@ -139,6 +168,28 @@ public struct TMDABCGenerator {
             return "\"\(chordName)\"z\(multiplier)"
         case .tie:
             return "z\(multiplier)"
+        case .rest:
+            return "z\(multiplier)"
+        case .percussion(let pattern):
+            let pitches = pattern.compactMap { character -> String? in
+                switch character {
+                case "X", "x": return "^F"
+                case "T", "t": return "A"
+                case "S", "s": return "D"
+                default: return nil
+                }
+            }
+            return pitches.map { "\($0)\(multiplier)" }.joined(separator: " ")
+        }
+    }
+
+    private static func paragraphsContainPercussion(_ paragraphs: [Paragraph], instrument: String) -> Bool {
+        paragraphs.filter { $0.instrument == instrument }.contains { paragraph in
+            paragraph.sections.contains { section in
+                section.unitGroups.contains { group in
+                    group.units.contains { if case .percussion = $0 { return true }; return false }
+                }
+            }
         }
     }
 

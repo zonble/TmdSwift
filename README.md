@@ -8,6 +8,10 @@ Original project: [https://github.com/aguai/TMDLang](https://github.com/aguai/TM
 
 ## About TMD
 
+正式的 TmdSwift 實作語法請參閱
+[`docs/TMD-Language-Specification.zh-TW.md`](docs/TMD-Language-Specification.zh-TW.md)。
+原始設計筆記則保留於 [`docs/Band-Score.syntax.zh_TW.md`](docs/Band-Score.syntax.zh_TW.md)。
+
 TMD is a plain-text musical notation DSL designed by composer and music producer 阿怪 (aguai, known for classics such as A-Mei's 《三天三夜》). It allows musicians and arrangers to describe multi-track songs, numbered musical notation (jianpu), chord progressions, tuplets, and playback arrangements in a concise, human-readable text format.
 
 At its core, TMD reflects the practical workflow and mental model of modern popular music songwriting and arrangement:

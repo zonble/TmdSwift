@@ -33,7 +33,7 @@ public struct TMDMIDIGenerator {
         midiData.append(contentsOf: ticksPerQuarter.bigEndianBytes)
 
         // Track 0: Conductor Track (Tempo, Time Signature, Track Name)
-        let conductorTrackData = buildConductorTrack(sheet: sheet)
+        let conductorTrackData = buildConductorTrack(sheet: sheet, orders: orderSequence, ticksPerQuarter: ticksPerQuarter)
         midiData.append(contentsOf: "MTrk".utf8)
         midiData.append(contentsOf: UInt32(conductorTrackData.count).bigEndianBytes)
         midiData.append(conductorTrackData)
@@ -59,7 +59,7 @@ public struct TMDMIDIGenerator {
 
     // MARK: - Conductor Track
 
-    private static func buildConductorTrack(sheet: Sheet) -> Data {
+    private static func buildConductorTrack(sheet: Sheet, orders: [Order], ticksPerQuarter: UInt16) -> Data {
         var events: [MIDIEvent] = []
 
         // Sequence / Track Name
@@ -81,6 +81,46 @@ public struct TMDMIDIGenerator {
         let dd = UInt8(round(log2(Double(sheet.beat.noteValue > 0 ? sheet.beat.noteValue : 4))))
         let timeSigBytes = Data([nn, dd, 24, 8])
         events.append(MIDIEvent(tick: 0, rawBytes: metaEvent(type: 0x58, data: timeSigBytes)))
+
+        // Local directives are placed on the conductor timeline according to
+        // the same arrangement order used by instrument tracks.
+        var currentTick: UInt32 = 0
+        var currentTempo = sheet.speed > 0 ? sheet.speed : 120.0
+        let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(max(1, sheet.beat.noteValue))) * Double(max(1, sheet.beat.count)))
+        for order in orders {
+            guard case .name(let paragraphName) = order else { continue }
+            let candidates = sheet.paragraphs.filter { $0.name == paragraphName && !$0.sections.isEmpty }
+            guard let paragraph = candidates.first else { continue }
+            let paragraphStart = currentTick + UInt32(max(0, paragraph.start)) * ticksPerMeasure
+            var sectionOffset: UInt32 = 0
+            for section in paragraph.sections {
+                let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(max(1, section.noteLength)))
+                for directive in section.directives {
+                    let tick = paragraphStart + sectionOffset + UInt32(max(0, directive.position)) * ticksPerUnit
+                    switch directive.kind {
+                    case .tempo(let value):
+                        currentTempo = max(1.0, value)
+                        let mpqn = UInt32(60_000_000.0 / currentTempo)
+                        let bytes = Data([UInt8((mpqn >> 16) & 0xFF), UInt8((mpqn >> 8) & 0xFF), UInt8(mpqn & 0xFF)])
+                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x51, data: bytes)))
+                    case .relativeTempo(let value):
+                        currentTempo = max(1.0, currentTempo + value)
+                        let mpqn = UInt32(60_000_000.0 / currentTempo)
+                        let bytes = Data([UInt8((mpqn >> 16) & 0xFF), UInt8((mpqn >> 8) & 0xFF), UInt8(mpqn & 0xFF)])
+                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x51, data: bytes)))
+                    case .timeSignature(let beat):
+                        let denominator = UInt8(round(log2(Double(max(1, beat.noteValue)))))
+                        events.append(MIDIEvent(tick: tick, rawBytes: metaEvent(type: 0x58, data: Data([UInt8(max(1, beat.count)), denominator, 24, 8]))))
+                    case .absoluteKey, .relativeKey:
+                        break
+                    }
+                }
+                sectionOffset += section.unitGroups.reduce(0) { partial, group in
+                    partial + UInt32(max(0, group.length)) * ticksPerUnit
+                }
+            }
+            currentTick += calculateParagraphDurationTicks(paragraphName: paragraphName, sheet: sheet, ticksPerQuarter: ticksPerQuarter)
+        }
 
         return encodeTrack(events: events)
     }
@@ -158,7 +198,7 @@ public struct TMDMIDIGenerator {
         for p in matchingParagraphs {
             let beatsPerMeasure = Double(sheet.beat.count)
             let ticksPerMeasure = UInt32(Double(ticksPerQuarter) * (4.0 / Double(sheet.beat.noteValue)) * beatsPerMeasure)
-            var pTicks = UInt32(p.start) * ticksPerMeasure
+            var pTicks = UInt32(max(0, p.start)) * ticksPerMeasure
             for sec in p.sections {
                 let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(sec.noteLength))
                 for ug in sec.unitGroups {
@@ -187,10 +227,18 @@ public struct TMDMIDIGenerator {
         var trackTick = baseTick + (UInt32(max(0, paragraph.start)) * ticksPerMeasure)
         let startTick = trackTick
 
+        var localKeyOffset = keyOffset
         for section in paragraph.sections {
             let ticksPerUnit = UInt32((Double(ticksPerQuarter) * 4.0) / Double(section.noteLength))
+            var sectionPosition = 0
+            var directiveIndex = 0
+            let directives = section.directives.sorted { $0.position < $1.position }
 
             for unitGroup in section.unitGroups {
+                while directiveIndex < directives.count && directives[directiveIndex].position == sectionPosition {
+                    applyKeyDirective(directives[directiveIndex].kind, to: &localKeyOffset)
+                    directiveIndex += 1
+                }
                 let groupDuration = UInt32(unitGroup.length) * ticksPerUnit
                 let activeUnits = unitGroup.units.filter { $0 != .tie }
 
@@ -201,7 +249,7 @@ public struct TMDMIDIGenerator {
                     for unit in activeUnits {
                         switch unit {
                         case .note(let note):
-                            let midiPitch = noteToMIDIPitch(note, keyOffset: keyOffset)
+                            let midiPitch = noteToMIDIPitch(note, keyOffset: localKeyOffset)
                             if (0...127).contains(midiPitch) {
                                 let noteOn = Data([0x90 | channel, UInt8(midiPitch), 96])
                                 let noteOff = Data([0x80 | channel, UInt8(midiPitch), 0])
@@ -209,7 +257,7 @@ public struct TMDMIDIGenerator {
                                 events.append(MIDIEvent(tick: unitStartTick + max(1, subDuration - 2), rawBytes: noteOff))
                             }
                         case .chord(let chordName):
-                            let pitches = chordToMIDIPitches(chordName, keyOffset: keyOffset)
+                            let pitches = chordToMIDIPitches(chordName, keyOffset: localKeyOffset)
                             for p in pitches where (0...127).contains(p) {
                                 let noteOn = Data([0x90 | channel, UInt8(p), 88])
                                 let noteOff = Data([0x80 | channel, UInt8(p), 0])
@@ -218,15 +266,34 @@ public struct TMDMIDIGenerator {
                             }
                         case .tie:
                             break
+                        case .rest:
+                            break
+                        case .percussion(let pattern):
+                            let drumDuration = max(1, subDuration / UInt32(max(1, pattern.count)))
+                            for (index, character) in pattern.enumerated() {
+                                guard let pitch = percussionMIDIPitch(for: character) else { continue }
+                                let tick = unitStartTick + UInt32(index) * drumDuration
+                                events.append(MIDIEvent(tick: tick, rawBytes: Data([0x99, UInt8(pitch), 96])))
+                                events.append(MIDIEvent(tick: tick + max(1, drumDuration - 1), rawBytes: Data([0x89, UInt8(pitch), 0])))
+                            }
                         }
                         unitStartTick += subDuration
                     }
                 }
                 trackTick += groupDuration
+                sectionPosition += unitGroup.length
             }
         }
 
         return (events, trackTick - startTick)
+    }
+
+    private static func applyKeyDirective(_ kind: SectionDirectiveKind, to offset: inout Int) {
+        switch kind {
+        case .relativeKey(let delta): offset += delta
+        case .absoluteKey(let key): offset = parseKeySignatureSemitones(key)
+        default: break
+        }
     }
 
     // MARK: - Musical Helpers
@@ -246,6 +313,15 @@ public struct TMDMIDIGenerator {
 
         pitch += note.octave * 12
         return pitch
+    }
+
+    private static func percussionMIDIPitch(for character: Character) -> Int? {
+        switch character {
+        case "X", "x": return 42 // closed hi-hat
+        case "T", "t": return 45 // low tom
+        case "S", "s": return 38 // acoustic snare
+        default: return nil
+        }
     }
 
     /// Resolves chord names (degree numbers like `1`, `6m`, `4`, `5`, or chord names like `Cmaj7`).
