@@ -73,7 +73,7 @@ public enum TMDPlaybackRenderer {
                     continue
                 }
 
-                let start = timelinePosition + Double(max(0, paragraph.start)) * measureDuration(for: state.timeSignature)
+                let start = timelinePosition + Double(paragraph.start) * measureDuration(for: state.timeSignature)
                 let rendered = render(
                     paragraph: paragraph,
                     start: start,
@@ -86,10 +86,33 @@ public enum TMDPlaybackRenderer {
             }
         }
 
+        // If any event starts at a negative position (e.g. lead-in measure @|-1| on the first paragraph),
+        // shift the entire timeline forward so that the earliest event starts at exactly position 0.0.
+        let minEventPosition = events.map(\.position).min() ?? 0.0
+        let minDirectivePosition = directives.map(\.position).min() ?? 0.0
+        let earliestPosition = min(minEventPosition, minDirectivePosition)
+        let offset = earliestPosition < 0.0 ? -earliestPosition : 0.0
+
+        let adjustedEvents = events.map { event in
+            PlaybackEvent(
+                position: event.position + offset,
+                duration: event.duration,
+                content: event.content,
+                state: event.state
+            )
+        }
+        let adjustedDirectives = directives.map { directive in
+            PlaybackDirectiveEvent(
+                position: directive.position + offset,
+                kind: directive.kind,
+                state: directive.state
+            )
+        }
+
         return PlaybackTimeline(
-            events: events.sorted { $0.position < $1.position },
-            directives: directives.sorted { $0.position < $1.position },
-            duration: timelinePosition
+            events: adjustedEvents.sorted { $0.position < $1.position },
+            directives: adjustedDirectives.sorted { $0.position < $1.position },
+            duration: timelinePosition + offset
         )
     }
 

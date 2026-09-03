@@ -865,7 +865,7 @@ private struct TokenParser {
         case .percussion(let pattern):
             advance()
             return .percussion(pattern)
-        case .identifier(let value) where !value.isEmpty && value.allSatisfy({ "XxTtSs".contains($0) }):
+        case .identifier(let value) where !value.isEmpty && value.allSatisfy({ "XxTtSsDdBbOoCc".contains($0) }):
             advance()
             return .percussion(value)
         default:

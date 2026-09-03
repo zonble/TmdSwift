@@ -106,7 +106,14 @@ public struct TMDMIDIGenerator {
     }
 
     private static func percussionMIDIPitch(for character: Character) -> Int? {
-        ["X": 42, "x": 42, "T": 45, "t": 45, "S": 38, "s": 38][character]
+        [
+            "D": 36, "d": 36, "B": 36, "b": 36,  // Bass Drum 1 (Kick)
+            "S": 38, "s": 38,                     // Acoustic Snare
+            "X": 42, "x": 42,                     // Closed Hi-Hat
+            "O": 46, "o": 46,                     // Open Hi-Hat
+            "T": 45, "t": 45,                     // Low-Mid Tom
+            "C": 49, "c": 49                      // Crash Cymbal 1
+        ][character]
     }
 
     /// Resolves chord names (degree numbers like `1`, `6m`, `4`, `5`, or chord names like `Cmaj7`).

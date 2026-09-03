@@ -548,3 +548,48 @@ import TmdABC
     #expect(TMDLilyPondGenerator.generateLilyPond(from: sheet).contains("\\score"))
     #expect(TMDABCGenerator.generateABC(from: sheet).contains("T:Fallback"))
 }
+
+@Test func testNegativeParagraphStartOffset() throws {
+    let tmd = """
+    ::SCORE::
+    ** Negative Offset Test **
+    != 120
+    ?= C
+    <4/4>
+
+    intro:Piano@|0|{
+        <4*>
+        1 2 3 4
+    }
+
+    v1:Piano@|-1|{
+        <4*>
+        5 6 7 1^
+    }
+
+    -> intro -> v1 ->#
+    """
+
+    let sheet = try TmdParser.parseThrowing(string: tmd)
+    #expect(sheet.paragraphs.count == 2)
+    #expect(sheet.paragraphs[0].start == 0)
+    #expect(sheet.paragraphs[1].start == -1)
+
+    let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: "Piano")
+    #expect(!timeline.events.isEmpty)
+
+    // intro starts at measure 0 (4 quarter notes: 0.0, 1.0, 2.0, 3.0).
+    // v1 is ordered after intro, but with start = -1 (one measure = 4 beats earlier),
+    // so v1 starts at 4.0 - 4.0 = 0.0 (overlapping with intro!).
+    let v1Notes = timeline.events.filter { event in
+        if case .note(let n) = event.content { return n.degree == .g }
+        return false
+    }
+    #expect(!v1Notes.isEmpty)
+    #expect(v1Notes[0].position == 0.0)
+
+    // Also verify MIDI generator doesn't crash or overflow
+    let midi = TMDMIDIGenerator.generateMIDI(from: sheet)
+    #expect(!midi.isEmpty)
+}
+
