@@ -1,4 +1,5 @@
 import Foundation
+import TmdUtils
 
 // MARK: - Token Definitions
 
@@ -320,6 +321,7 @@ public final class Lexer {
 // MARK: - Parser
 
 public struct TmdParser {
+    /// Parses a TMD score from a text string.
     public static func parse(string: String) -> Sheet? {
         let lexer = Lexer(string: string)
         let tokens = lexer.tokenize()
@@ -327,11 +329,25 @@ public struct TmdParser {
         return parser.parseSheet()
     }
 
+    /// Parses a TMD score from raw byte data, automatically detecting character encoding (UTF-8, Big5, GB18030, etc.).
     public static func parse(data: Data) -> Sheet? {
-        guard let string = String(data: data, encoding: .utf8) else {
+        guard let result = TextEncodingDetector.detectAndDecode(data) else {
             return nil
         }
-        return parse(string: string)
+        return parse(string: result.content)
+    }
+
+    /// Parses a TMD score from a file URL or remote URL.
+    public static func parse(url: URL) throws -> Sheet? {
+        let data = try Data(contentsOf: url)
+        return parse(data: data)
+    }
+
+    /// Parses a TMD score from a path string or `file://` URL string, normalizing path and decoding encoding.
+    public static func parse(filePathOrURL: String) throws -> Sheet? {
+        let cleanPath = FilePathNormalizer.fileURLToPath(filePathOrURL)
+        let url = URL(fileURLWithPath: cleanPath)
+        return try parse(url: url)
     }
 }
 

@@ -30,17 +30,15 @@ struct TmdCLICommand: ParsableCommand {
     var pdfOutput: String?
 
     func run() throws {
-        let fileURL = URL(fileURLWithPath: inputPath)
-        let data: Data
+        let sheet: Sheet
         do {
-            data = try Data(contentsOf: fileURL)
+            guard let parsed = try TmdParser.parse(filePathOrURL: inputPath) else {
+                print("Error: Failed to parse TMD file at \(inputPath)")
+                throw ExitCode.failure
+            }
+            sheet = parsed
         } catch {
-            print("Error: Could not read file at \(inputPath): \(error.localizedDescription)")
-            throw ExitCode.failure
-        }
-
-        guard let sheet = TmdParser.parse(data: data) else {
-            print("Error: Failed to parse TMD file at \(inputPath)")
+            print("Error: Could not read or decode file at \(inputPath): \(error.localizedDescription)")
             throw ExitCode.failure
         }
 

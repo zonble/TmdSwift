@@ -23,6 +23,10 @@ let package = Package(
             name: "TmdLilyPond",
             targets: ["TmdLilyPond"]
         ),
+        .library(
+            name: "TmdUtils",
+            targets: ["TmdUtils"]
+        ),
         .executable(
             name: "tmd",
             targets: ["TmdCLI"]
@@ -35,7 +39,11 @@ let package = Package(
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "TmdSwift"
+            name: "TmdUtils"
+        ),
+        .target(
+            name: "TmdSwift",
+            dependencies: ["TmdUtils"]
         ),
         .target(
             name: "TmdMIDI",
@@ -56,12 +64,13 @@ let package = Package(
                 "TmdMIDI",
                 "TmdMusicXML",
                 "TmdLilyPond",
+                "TmdUtils",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "TmdSwiftTests",
-            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond"]
+            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdUtils"]
         ),
     ],
     swiftLanguageModes: [.v6]

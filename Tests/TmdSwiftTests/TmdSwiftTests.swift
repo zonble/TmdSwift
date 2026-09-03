@@ -4,6 +4,7 @@ import Foundation
 import TmdMIDI
 import TmdMusicXML
 import TmdLilyPond
+import TmdUtils
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -158,6 +159,46 @@ import TmdLilyPond
         #expect(ly.contains("三天三夜"))
         #expect(ly.contains("\\score"))
         #expect(ly.contains("\\new Staff"))
+    }
+}
+
+@Test func testFileURLAndEncoding() throws {
+    let sampleURL = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("sample/三天三夜.tmd")
+
+    // Test URL parsing
+    let sheetFromURL = try TmdParser.parse(url: sampleURL)
+    #expect(sheetFromURL != nil)
+    #expect(sheetFromURL?.name == "三天三夜")
+
+    // Test file:// string parsing with percent-encoding
+    let fileURLString = sampleURL.absoluteString
+    #expect(FilePathNormalizer.isFileURL(fileURLString))
+    let sheetFromFileURL = try TmdParser.parse(filePathOrURL: fileURLString)
+    #expect(sheetFromFileURL != nil)
+    #expect(sheetFromFileURL?.name == "三天三夜")
+
+    // Test Big5 encoded data detection
+    let tmdBig5 = """
+    ::SCORE::
+    ** 測試Big5 **
+    != 120
+    ?= C
+    <4/4>
+    intro:鋼琴@|0|{
+    <4*>
+    1 2 3 4
+    }
+    -> intro ->#
+    """
+    if let big5Data = tmdBig5.data(using: .big5) {
+        let sheetBig5 = TmdParser.parse(data: big5Data)
+        #expect(sheetBig5 != nil)
+        #expect(sheetBig5?.name == "測試Big5")
+        #expect(sheetBig5?.paragraphs.first?.instrument == "鋼琴")
     }
 }
 
