@@ -15,7 +15,7 @@ public struct TMDMIDIGenerator {
         var trackData = [TMDMIDIEncoder.encodeTrack(events: conductorEvents(
             sheet: sheet, timeline: timeline, ticksPerQuarter: ticksPerQuarter
         ))]
-        var melodyChannel: UInt8 = 0
+        var melodyChannel = 0
         for (_, instrument) in distinctInstruments.enumerated() {
             let midiInstrument = MIDIInstrument.resolve(instrument)
             let channel: UInt8
@@ -23,7 +23,7 @@ public struct TMDMIDIGenerator {
                 channel = 9
             } else {
                 if melodyChannel == 9 { melodyChannel += 1 } // Skip percussion channel 10 (index 9)
-                channel = melodyChannel % 16
+                channel = UInt8(melodyChannel % 16)
                 melodyChannel += 1
             }
             let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
@@ -74,7 +74,7 @@ public struct TMDMIDIGenerator {
                     appendNote(&events, start: start, duration: duration, channel: channel, pitch: $0, velocity: 88)
                 }
             case .percussion(let pattern):
-                let step = max(1, duration / UInt32(max(1, pattern.count)))
+                let step = max(1, duration / UInt32(clamping: max(1, pattern.count)))
                 for (index, character) in pattern.enumerated() {
                     if let pitch = percussionMIDIPitch(for: character) {
                         let velocity: UInt8 = switch character {
@@ -85,7 +85,16 @@ public struct TMDMIDIGenerator {
                         case "O", "o": 90            // Open Hi-Hat
                         default: 78                  // Background Closed Hi-Hat
                         }
-                        appendNote(&events, start: start + UInt32(index) * step, duration: step, channel: 9, pitch: pitch, velocity: velocity)
+                        let offset = UInt32(clamping: index).multipliedReportingOverflow(by: step)
+                        let noteStart = start.addingReportingOverflow(offset.partialValue)
+                        appendNote(
+                            &events,
+                            start: noteStart.overflow ? UInt32.max : noteStart.partialValue,
+                            duration: step,
+                            channel: 9,
+                            pitch: pitch,
+                            velocity: velocity
+                        )
                     }
                 }
             case .rest:
@@ -98,11 +107,23 @@ public struct TMDMIDIGenerator {
     private static func appendNote(_ events: inout [MIDIEvent], start: UInt32, duration: UInt32, channel: UInt8, pitch: Int, velocity: UInt8) {
         guard (0...127).contains(pitch) else { return }
         events.append(MIDIEvent(tick: start, message: .noteOn(channel: channel, note: UInt8(pitch), velocity: velocity)))
-        events.append(MIDIEvent(tick: start + max(1, duration - 2), message: .noteOff(channel: channel, note: UInt8(pitch))))
+        let noteOffOffset = duration > 2 ? duration - 2 : 1
+        let noteOffTick = start.addingReportingOverflow(noteOffOffset)
+        events.append(MIDIEvent(
+            tick: noteOffTick.overflow ? UInt32.max : noteOffTick.partialValue,
+            message: .noteOff(channel: channel, note: UInt8(pitch))
+        ))
     }
 
     private static func midiTick(_ quarterNotes: Double, ticksPerQuarter: UInt16) -> UInt32 {
-        UInt32(max(0, (quarterNotes * Double(ticksPerQuarter)).rounded()))
+        let ticks = (quarterNotes * Double(ticksPerQuarter)).rounded()
+        guard ticks.isFinite else { return 0 }
+        return clampedUInt32(ticks)
+    }
+
+    private static func clampedUInt32(_ value: Double) -> UInt32 {
+        guard value.isFinite else { return value.sign == .minus ? 0 : UInt32.max }
+        return UInt32(min(max(0, value), Double(UInt32.max)))
     }
 
     // MARK: - Musical Helpers

@@ -19,14 +19,15 @@ struct MIDIEvent {
 /// Encodes typed MIDI content into Standard MIDI File binary data.
 final class TMDMIDIEncoder {
     static func encodeFile(tracks: [Data], ticksPerQuarter: UInt16) -> Data {
+        let encodedTracks = tracks.prefix(Int(UInt16.max))
         let header = Data("MThd".utf8)
             + Data(UInt32(6).bigEndianBytes)
             + Data(UInt16(1).bigEndianBytes)
-            + Data(UInt16(tracks.count).bigEndianBytes)
+            + Data(UInt16(encodedTracks.count).bigEndianBytes)
             + Data(ticksPerQuarter.bigEndianBytes)
-        return tracks.reduce(into: header) { midi, track in
+        return encodedTracks.reduce(into: header) { midi, track in
             midi.append(contentsOf: "MTrk".utf8)
-            midi.append(contentsOf: UInt32(track.count).bigEndianBytes)
+            midi.append(contentsOf: UInt32(clamping: track.count).bigEndianBytes)
             midi.append(track)
         }
     }
@@ -49,12 +50,12 @@ final class TMDMIDIEncoder {
         case .trackName(let name):
             return metaEvent(type: 0x03, data: Data(name.utf8))
         case .tempo(let bpm):
-            let mpqn = UInt32(60_000_000.0 / max(1, bpm))
+            let mpqn = clampedUInt32(60_000_000.0 / max(1, bpm))
             let data = Data([UInt8((mpqn >> 16) & 0xFF), UInt8((mpqn >> 8) & 0xFF), UInt8(mpqn & 0xFF)])
             return metaEvent(type: 0x51, data: data)
         case .timeSignature(let beat):
             let denominator = UInt8(round(log2(Double(max(1, beat.noteValue)))))
-            return metaEvent(type: 0x58, data: Data([UInt8(max(1, beat.count)), denominator, 24, 8]))
+            return metaEvent(type: 0x58, data: Data([UInt8(clamping: max(1, beat.count)), denominator, 24, 8]))
         case .endOfTrack:
             return metaEvent(type: 0x2F, data: Data())
         case .noteOn(let channel, let note, let velocity):
@@ -67,7 +68,12 @@ final class TMDMIDIEncoder {
     }
 
     private static func metaEvent(type: UInt8, data: Data) -> Data {
-        Data([0xFF, type]) + Data(variableLengthQuantity(UInt32(data.count))) + data
+        Data([0xFF, type]) + Data(variableLengthQuantity(UInt32(clamping: data.count))) + data
+    }
+
+    private static func clampedUInt32(_ value: Double) -> UInt32 {
+        guard value.isFinite else { return value.sign == .minus ? 0 : UInt32.max }
+        return UInt32(min(max(0, value), Double(UInt32.max)))
     }
 
     private static func variableLengthQuantity(_ value: UInt32) -> [UInt8] {

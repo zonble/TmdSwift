@@ -25,7 +25,7 @@ private struct WAVFormat {
     let bitsPerSample: UInt16
 
     var blockAlign: UInt16 { channels * bitsPerSample / 8 }
-    var byteRate: UInt32 { sampleRate * UInt32(blockAlign) }
+    var byteRate: UInt32 { UInt32(clamping: UInt64(sampleRate) * UInt64(blockAlign)) }
 }
 
 private struct WAVFile {
@@ -33,8 +33,8 @@ private struct WAVFile {
     let data: Data
 
     func encoded() -> Data {
-        let dataSize = UInt32(data.count)
-        let chunkSize = UInt32(36) + dataSize
+        let dataSize = UInt32(clamping: data.count)
+        let chunkSize = UInt32(clamping: UInt64(36) + UInt64(dataSize))
         let chunks: [Data] = [
             Data("RIFF".utf8),
             Data(chunkSize.littleEndianBytes),

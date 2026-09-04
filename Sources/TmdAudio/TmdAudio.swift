@@ -220,7 +220,7 @@ public struct TMDWAVRenderer {
             MusicTrackGetProperty(tt, kSequenceTrackProperty_TrackLength, &tempoBeats, &bpmSize)
         }
         let totalSeconds = max(2.0, Double(maxTrackBeats) * (60.0 / tempoBPM) + 1.5)
-        let totalFrames = UInt32(totalSeconds * sampleRate)
+        let totalFrames = clampedUInt32(totalSeconds * sampleRate)
 
         // Offline render loop
         let framesPerBuffer: UInt32 = 1024
@@ -278,7 +278,12 @@ public struct TMDWAVRenderer {
         }
 
         // Encode into Standard 16-bit Linear PCM Stereo WAV
-        return TMDWAVEncoder.encode(left: pcmSamplesLeft, right: pcmSamplesRight, sampleRate: UInt32(sampleRate))
+        return TMDWAVEncoder.encode(left: pcmSamplesLeft, right: pcmSamplesRight, sampleRate: clampedUInt32(sampleRate))
+    }
+
+    private static func clampedUInt32(_ value: Double) -> UInt32 {
+        guard value.isFinite else { return value.sign == .minus ? 0 : UInt32.max }
+        return UInt32(min(max(0, value), Double(UInt32.max)))
     }
 }
 #else
