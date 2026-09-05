@@ -1,6 +1,6 @@
 # TmdSwift
 
-A modern Swift implementation of the **TMD** (Text Music Description) markup language parser, toolkit, and music notation exporter.
+A modern Swift implementation of the **TMD** (Timebase Mark Down) markup language parser, toolkit, and music notation exporter.
 
 In memory of **Chen, Chih-Han / [aguai](https://github.com/aguai)** (阿怪, 1974–2019).
 

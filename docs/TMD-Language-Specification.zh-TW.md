@@ -5,7 +5,7 @@
 
 ## 1. 文件目的
 
-本文件定義目前 TmdSwift 所接受的 TMD（Text Music Description）文字格式。
+本文件定義目前 TmdSwift 所接受的 TMD（Timebase Mark Down）文字格式。
 文件描述的是「目前實作的行為」，不是未來功能的提案。歷史設計、原始 TMDLang
 文件以及尚未實作的語法，另見 [`Band-Score.syntax.zh_TW.md`](Band-Score.syntax.zh_TW.md)。
 

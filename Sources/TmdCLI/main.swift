@@ -10,7 +10,7 @@ import TmdABC
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "tmd",
-        abstract: "A compiler and toolkit for the TMD music markup language.",
+        abstract: "A compiler and toolkit for the TMD (Timebase Mark Down) music markup language.",
         discussion: "In memory of Chen, Chih-Han / aguai (阿怪, 1974–2019).\nOriginal project: https://github.com/aguai/TMDLang",
         version: TmdVersion.current
     )

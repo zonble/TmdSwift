@@ -1,6 +1,6 @@
 # TMD Language Support for VS Code
 
-Official Visual Studio Code extension providing language support, syntax highlighting, and snippets for the **TMD (Text Music Description)** format.
+Official Visual Studio Code extension providing language support, syntax highlighting, and snippets for the **TMD (Timebase Mark Down)** format.
 
 ## Features
 

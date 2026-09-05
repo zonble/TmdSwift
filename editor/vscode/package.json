@@ -1,7 +1,7 @@
 {
   "name": "tmd-vscode",
   "displayName": "TMD Language Support",
-  "description": "Syntax highlighting, snippets, and language configuration for TMD (Text Music Description)",
+  "description": "Syntax highlighting, snippets, and language configuration for TMD (Timebase Mark Down)",
   "version": "0.1.0",
   "publisher": "zonble",
   "author": "zonble",
