@@ -1,7 +1,7 @@
 # TMD 語言規格（TmdSwift 實作版）
 
 版本：0.1（對應目前 TmdSwift parser）  
-語言：繁體中文
+語言：繁體中文（[English Version](TMD-Language-Specification.en.md)）
 
 ## 1. 文件目的
 
