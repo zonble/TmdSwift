@@ -63,6 +63,12 @@ public struct TMDMIDIGenerator {
         if !midiInstrument.isPercussion {
             events.append(MIDIEvent(tick: 0, message: .programChange(channel: channel, program: midiInstrument.program)))
         }
+        let lower = instrument.lowercased()
+        if lower.contains("left") || lower.contains("-l") {
+            events.append(MIDIEvent(tick: 0, message: .controlChange(channel: channel, controller: 10, value: 20)))
+        } else if lower.contains("right") || lower.contains("-r") {
+            events.append(MIDIEvent(tick: 0, message: .controlChange(channel: channel, controller: 10, value: 108)))
+        }
         for event in timeline.events {
             let start = midiTick(event.position, ticksPerQuarter: ticksPerQuarter)
             let duration = max(1, midiTick(event.duration, ticksPerQuarter: ticksPerQuarter))

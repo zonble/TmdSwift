@@ -9,6 +9,7 @@ enum MIDIMessage {
     case noteOn(channel: UInt8, note: UInt8, velocity: UInt8)
     case noteOff(channel: UInt8, note: UInt8)
     case programChange(channel: UInt8, program: UInt8)
+    case controlChange(channel: UInt8, controller: UInt8, value: UInt8)
 }
 
 struct MIDIEvent {
@@ -64,6 +65,8 @@ final class TMDMIDIEncoder {
             return Data([0x80 | channel, note, 0])
         case .programChange(let channel, let program):
             return Data([0xC0 | channel, program])
+        case .controlChange(let channel, let controller, let value):
+            return Data([0xB0 | channel, controller, value])
         }
     }
 

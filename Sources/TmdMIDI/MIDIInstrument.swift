@@ -6,6 +6,9 @@ public enum MIDIInstrument: Equatable {
     case electricPiano
     case organ
     case guitar
+    case distortionGuitar
+    case overdriveGuitar
+    case cleanGuitar
     case nylonGuitar
     case bass
     case strings
@@ -25,6 +28,9 @@ public enum MIDIInstrument: Equatable {
         let name = name.lowercased()
         let aliases: [(MIDIInstrument, [String])] = [
             (.percussion, ["drum", "groove", "percussion"]),
+            (.distortionGuitar, ["distortion", "dist", "fuzz", "heavy", "metal"]),
+            (.overdriveGuitar, ["overdrive", "od", "rockguitar", "electricguitar", "electric-guitar"]),
+            (.cleanGuitar, ["cleanguitar", "electricclean"]),
             (.flute, ["flute", "pipe", "whistle"]),
             (.violin, ["violin", "fiddle"]),
             (.cello, ["cello"]),
@@ -52,6 +58,9 @@ public enum MIDIInstrument: Equatable {
         case .organ: 16
         case .nylonGuitar: 24
         case .guitar: 25
+        case .cleanGuitar: 27
+        case .overdriveGuitar: 29
+        case .distortionGuitar: 30
         case .bass: 33
         case .violin: 40
         case .cello: 42
