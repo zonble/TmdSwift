@@ -35,6 +35,10 @@ let package = Package(
             name: "TmdABC",
             targets: ["TmdABC"]
         ),
+        .library(
+            name: "TmdSkill",
+            targets: ["TmdSkill"]
+        ),
         .executable(
             name: "tmd",
             targets: ["TmdCLI"]
@@ -48,6 +52,9 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "TmdUtils"
+        ),
+        .target(
+            name: "TmdSkill"
         ),
         .target(
             name: "TmdSwift",
@@ -82,13 +89,14 @@ let package = Package(
                 "TmdLilyPond",
                 "TmdABC",
                 "TmdAudio",
+                "TmdSkill",
                 "TmdUtils",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "TmdSwiftTests",
-            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdABC", "TmdAudio", "TmdUtils"]
+            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdABC", "TmdAudio", "TmdSkill", "TmdUtils"]
         ),
     ],
     swiftLanguageModes: [.v6]

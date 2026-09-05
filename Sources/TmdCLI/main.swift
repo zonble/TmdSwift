@@ -6,6 +6,7 @@ import TmdMusicXML
 import TmdLilyPond
 import TmdAudio
 import TmdABC
+import TmdSkill
 
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -16,13 +17,16 @@ struct TmdCLICommand: ParsableCommand {
     )
 
     @Argument(help: "Path to the .tmd file to process.")
-    var inputPath: String
+    var inputPath: String?
 
     @Flag(name: [.short, .long], help: "Only parse and display the score structure summary.")
     var parseOnly: Bool = false
 
     @Flag(name: [.long], help: "Play the score using the macOS default sound bank.")
     var play: Bool = false
+
+    @Flag(name: [.long], help: "Install TMD skill definitions to local AI agent skill directories (Codex, Antigravity, Claude, etc.).")
+    var installSkills: Bool = false
 
     @Option(name: [.short, .long], help: "Export to MIDI file at the specified path.")
     var midiOutput: String?
@@ -46,6 +50,27 @@ struct TmdCLICommand: ParsableCommand {
     var soundfont: String?
 
     func run() throws {
+        if installSkills {
+            print("Installing TMD skill for AI agents...")
+            let results = TmdSkill.installSkills()
+            if results.isEmpty {
+                print("No AI agent directories found to install into.")
+            } else {
+                for res in results {
+                    print(res.message)
+                }
+            }
+            if inputPath == nil {
+                return
+            }
+        }
+
+        guard let inputPath = inputPath else {
+            print("Error: Missing expected argument '<input-path>'")
+            print("Use --help for usage information, or --install-skills to install AI agent skills.")
+            throw ExitCode.failure
+        }
+
         print("TmdSwift v\(TmdVersion.current) - In memory of Chen, Chih-Han / aguai (阿怪, 1974–2019).")
         let sheet: Sheet
         do {

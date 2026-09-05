@@ -85,6 +85,9 @@ swift run tmd sample/三天三夜.tmd -a score.abc
 
 # 7. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
 swift run tmd sample/三天三夜.tmd -w score.wav
+
+# 8. Install TMD skill definition for AI agents (Codex, Antigravity, Claude, etc.)
+swift run tmd --install-skills
 ```
 
 ## Swift Package Usage
@@ -135,6 +138,7 @@ let abc = TMDABCGenerator.generateABC(from: sheet)
 - **`TmdLilyPond`**: LilyPond engraving source generator.
 - **`TmdABC`**: Standard ABC Notation (v2.1+) generator.
 - **`TmdAudio`**: Offline WAV audio synthesizer using CoreAudio / DLS SoundFont.
+- **`TmdSkill`**: AI agent skill definitions and automated installation utilities for AI co-pilots.
 - **`TmdUtils`**: Cross-platform file path normalizer and character encoding detector.
 - **`TmdCLI`**: Command-line interface executable (`tmd`).
 

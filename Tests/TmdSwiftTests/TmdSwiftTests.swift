@@ -7,6 +7,7 @@ import TmdLilyPond
 import TmdUtils
 import TmdAudio
 import TmdABC
+import TmdSkill
 
 @Test func testParseTMDScore() throws {
     let tmd = """
@@ -643,4 +644,26 @@ import TmdABC
     for (down, normal) in zip(downPitches, normalPitches) {
         #expect(down == normal - 12)
     }
+}
+
+@Test func testTmdSkillDefinitionAndInstallation() throws {
+    #expect(TmdSkill.skillName == "tmd")
+    #expect(TmdSkill.skillMarkdown.contains("name: tmd"))
+    #expect(TmdSkill.skillMarkdown.contains("::SCORE::"))
+    #expect(TmdSkill.skillMarkdown.contains("--install-skills"))
+
+    let tempDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tmd-skill-test-\(UUID().uuidString)")
+    let targetSkillDir = tempDir.appendingPathComponent("skills/tmd")
+
+    let results = TmdSkill.installSkills(to: [targetSkillDir])
+    #expect(results.count == 1)
+    #expect(results[0].success)
+
+    let installedFile = targetSkillDir.appendingPathComponent("SKILL.md")
+    #expect(FileManager.default.fileExists(atPath: installedFile.path))
+
+    let content = try String(contentsOf: installedFile, encoding: .utf8)
+    #expect(content == TmdSkill.skillMarkdown)
+
+    try? FileManager.default.removeItem(at: tempDir)
 }
