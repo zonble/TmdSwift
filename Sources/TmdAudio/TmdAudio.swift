@@ -210,9 +210,7 @@ public struct TMDWAVRenderer {
         status = MusicPlayerStart(musicPlayer)
         guard status == noErr else { throw TmdAudioError.renderFailed(status) }
 
-        // Determine render duration: convert sequence beats to precise seconds via CoreAudio,
-        // accounting for all tempo events and directives in the conductor track,
-        // plus a 2.5s release reverb tail for clean audio decay.
+        // Determine render duration: convert beats to approximate seconds + 2.5s release reverb tail
         var sequenceSeconds: Float64 = 0
         let timeStatus = MusicSequenceGetSecondsForBeats(musicSequence, maxTrackBeats, &sequenceSeconds)
         let baseSeconds: Double
@@ -221,8 +219,7 @@ public struct TMDWAVRenderer {
         } else {
             baseSeconds = Double(maxTrackBeats) * (60.0 / 120.0)
         }
-        let releaseTailSeconds: Double = 2.5
-        let totalSeconds = max(2.0, baseSeconds + releaseTailSeconds)
+        let totalSeconds = max(2.0, baseSeconds + 2.5)
         let totalFrames = clampedUInt32(totalSeconds * sampleRate)
 
         // Offline render loop
@@ -241,11 +238,10 @@ public struct TMDWAVRenderer {
         var bufferLeft = [Float](repeating: 0, count: Int(framesPerBuffer))
         var bufferRight = [Float](repeating: 0, count: Int(framesPerBuffer))
 
-        let audioBufferList = AudioBufferList.allocate(maximumBuffers: 2)
-        defer { free(UnsafeMutableRawPointer(audioBufferList.unsafeMutablePointer)) }
-
         while renderedFrames < totalFrames {
             let framesToRender = min(framesPerBuffer, totalFrames - renderedFrames)
+            let audioBufferList = AudioBufferList.allocate(maximumBuffers: 2)
+            defer { free(UnsafeMutableRawPointer(audioBufferList.unsafeMutablePointer)) }
 
             bufferLeft.withUnsafeMutableBufferPointer { leftPtr in
                 bufferRight.withUnsafeMutableBufferPointer { rightPtr in

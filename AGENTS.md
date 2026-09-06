@@ -23,6 +23,7 @@ All AI agents contributing to `TmdSwift` must strictly follow Test-Driven Develo
   - Never hardcode BPM assumptions (e.g., assuming 120 BPM). Always resolve actual durations through the score's timeline or CoreAudio's `MusicSequenceGetSecondsForBeats`.
   - Account for dynamic tempo changes, relative tempo directives (`{!+10}`), and time signature changes across the conductor track.
   - Provide adequate release tails (e.g. 2.5s) on audio rendering so note decays and reverb tails are never clipped.
+  - When running full test suites involving offline CoreAudio / AUGraph rendering (`TMDWAVRenderer`), run with `swift test --no-parallel` to prevent macOS system-level CoreAudio graph concurrency race conditions across testing worker threads.
 
 - **DSL Standards**:
   - Keep TMD notation AST parsers, formatters, and exporters compliant with the specifications outlined in `docs/TMD-Language-Specification.zh-TW.md` and `docs/TMD-Language-Specification.en.md`.
