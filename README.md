@@ -36,7 +36,19 @@ At its core, TMD reflects the practical workflow and mental model of modern popu
 
 ## Co-Composing with AI Using TMD
 
-Because TMD is a concise, text-based, and human-readable musical notation DSL, it serves as an ideal bridge between human musical ideas and generative AI / Large Language Models (LLMs). Instead of wrestling with opaque binary formats (MIDI) or unstructured audio waveforms, creators and AI agents can pair-program music interactively in TMD:
+Because TMD is a concise, text-based, and human-readable musical notation DSL, it serves as an ideal bridge between human musical ideas and generative AI / Large Language Models (LLMs). Instead of wrestling with opaque binary formats (MIDI) or unstructured audio waveforms, creators and AI agents can pair-program music interactively in TMD.
+
+### 🚀 Equip Your AI Assistant in One Command
+
+`TmdSwift` comes with an official AI Agent skill (`SKILL.md`) covering TMD syntax, modular section chunking, human composition principles, motif development, and counterpoint rules. You can install it directly into your local AI environment (supporting Codex, Claude Code, Antigravity, and Gemini):
+
+```bash
+tmd --install-skills
+```
+
+Once installed, your AI agent will automatically understand how to compose, arrange, debug, and orchestrate music using TMD.
+
+### What AI Can Help You Achieve
 
 1. **Arranging Accompaniments from Melody**:
    Draft a vocal line or melody in TMD, then prompt the AI to generate supporting tracks (bass lines, rhythm guitar grooves, string pads, or drum patterns) with specific entry offsets (`@|+4|`).
