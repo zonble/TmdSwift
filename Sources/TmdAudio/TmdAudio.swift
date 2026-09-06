@@ -210,16 +210,19 @@ public struct TMDWAVRenderer {
         status = MusicPlayerStart(musicPlayer)
         guard status == noErr else { throw TmdAudioError.renderFailed(status) }
 
-        // Determine render duration: convert beats to approximate seconds + 1.5s release reverb tail
-        var tempoBeats: MusicTimeStamp = 0
-        let tempoBPM: Float64 = 120.0
-        var bpmSize = UInt32(MemoryLayout<Float64>.size)
-        var tempoTrack: MusicTrack?
-        MusicSequenceGetTempoTrack(musicSequence, &tempoTrack)
-        if let tt = tempoTrack {
-            MusicTrackGetProperty(tt, kSequenceTrackProperty_TrackLength, &tempoBeats, &bpmSize)
+        // Determine render duration: convert sequence beats to precise seconds via CoreAudio,
+        // accounting for all tempo events and directives in the conductor track,
+        // plus a 2.5s release reverb tail for clean audio decay.
+        var sequenceSeconds: Float64 = 0
+        let timeStatus = MusicSequenceGetSecondsForBeats(musicSequence, maxTrackBeats, &sequenceSeconds)
+        let baseSeconds: Double
+        if timeStatus == noErr && sequenceSeconds > 0 {
+            baseSeconds = sequenceSeconds
+        } else {
+            baseSeconds = Double(maxTrackBeats) * (60.0 / 120.0)
         }
-        let totalSeconds = max(2.0, Double(maxTrackBeats) * (60.0 / tempoBPM) + 1.5)
+        let releaseTailSeconds: Double = 2.5
+        let totalSeconds = max(2.0, baseSeconds + releaseTailSeconds)
         let totalFrames = clampedUInt32(totalSeconds * sampleRate)
 
         // Offline render loop
@@ -238,10 +241,11 @@ public struct TMDWAVRenderer {
         var bufferLeft = [Float](repeating: 0, count: Int(framesPerBuffer))
         var bufferRight = [Float](repeating: 0, count: Int(framesPerBuffer))
 
+        let audioBufferList = AudioBufferList.allocate(maximumBuffers: 2)
+        defer { free(UnsafeMutableRawPointer(audioBufferList.unsafeMutablePointer)) }
+
         while renderedFrames < totalFrames {
             let framesToRender = min(framesPerBuffer, totalFrames - renderedFrames)
-            let audioBufferList = AudioBufferList.allocate(maximumBuffers: 2)
-            defer { free(UnsafeMutableRawPointer(audioBufferList.unsafeMutablePointer)) }
 
             bufferLeft.withUnsafeMutableBufferPointer { leftPtr in
                 bufferRight.withUnsafeMutableBufferPointer { rightPtr in

@@ -238,7 +238,7 @@ import TmdSkill
 }
 
 #if os(macOS)
-@Test func testAudioRendering() throws {
+@Test func testAudioRenderingBasic() throws {
     let tmd = """
     ::SCORE::
     ** Audio Test **
@@ -256,9 +256,76 @@ import TmdSkill
         return
     }
 
-    let wavData = try TMDWAVRenderer.renderWAV(from: sheet)
+    let sampleRate: Double = 44100.0
+    let wavData = try TMDWAVRenderer.renderWAV(from: sheet, sampleRate: sampleRate)
     #expect(!wavData.isEmpty)
     #expect(wavData.starts(with: [0x52, 0x49, 0x46, 0x46])) // "RIFF"
+
+    let pcmBytes = wavData.count - 44
+    let durationSeconds = Double(pcmBytes) / (sampleRate * 4.0)
+    // 4 beats at 140 BPM is ~1.71s + release tail (2.5s) >= 4.0s
+    #expect(durationSeconds >= 4.0)
+}
+
+@Test func testAudioRenderingSlowTempoNotTruncated() throws {
+    // 60 BPM with 4 quarter notes = exactly 4.0 seconds of music.
+    // With release/reverb tail (at least 1.5s - 2.5s), duration MUST be >= 5.5s.
+    // If tempo was hardcoded to 120 BPM, 4 beats would produce only 4 * 0.5 + 1.5 = 3.5s, truncating the song!
+    let tmd = """
+    ::SCORE::
+    ** Slow 60 BPM Test **
+    != 60
+    ?= C
+    <4/4>
+    intro:Piano@|0|{
+    <4*>
+    1 2 3 4
+    }
+    -> intro ->#
+    """
+    guard let sheet = TmdParser.parse(string: tmd) else {
+        Issue.record("Failed to parse 60 BPM score")
+        return
+    }
+
+    let sampleRate: Double = 44100.0
+    let wavData = try TMDWAVRenderer.renderWAV(from: sheet, sampleRate: sampleRate)
+    #expect(wavData.count > 44)
+
+    // Calculate actual audio duration from WAV PCM bytes (16-bit stereo = 4 bytes per frame)
+    let pcmBytes = wavData.count - 44
+    let durationSeconds = Double(pcmBytes) / (sampleRate * 4.0)
+
+    // 4 beats at 60 BPM = 4.0s of score. It must NOT be truncated to 3.5s!
+    #expect(durationSeconds >= 5.5, "Rendered duration (\(durationSeconds)s) was truncated below 5.5s!")
+}
+
+@Test func testAudioRenderingWithTempoChangeDirective() throws {
+    // Starts at 120 BPM (2 beats = 1.0s), then drops to 60 BPM (2 beats = 2.0s). Total score duration = 3.0s.
+    let tmd = """
+    ::SCORE::
+    ** Tempo Change Test **
+    != 120
+    ?= C
+    <4/4>
+    intro:Piano@|0|{
+    <4*>
+    1 2 {!=60} 3 4
+    }
+    -> intro ->#
+    """
+    guard let sheet = TmdParser.parse(string: tmd) else {
+        Issue.record("Failed to parse tempo change score")
+        return
+    }
+
+    let sampleRate: Double = 44100.0
+    let wavData = try TMDWAVRenderer.renderWAV(from: sheet, sampleRate: sampleRate)
+    let pcmBytes = wavData.count - 44
+    let durationSeconds = Double(pcmBytes) / (sampleRate * 4.0)
+
+    // Total score duration is 1.0s + 2.0s = 3.0s, plus release tail (>=2.0s) -> >= 4.5s.
+    #expect(durationSeconds >= 4.5, "Rendered duration (\(durationSeconds)s) was truncated below 4.5s!")
 }
 #endif
 
