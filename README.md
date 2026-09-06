@@ -83,6 +83,13 @@ Once installed, your AI agent will automatically understand how to compose, arra
 
 Requires Swift 6.0+ / Xcode 16+.
 
+### Using Homebrew (macOS & Linux)
+
+```bash
+brew tap zonble/tmd
+brew install tmd
+```
+
 ### Using Mint
 
 You can install the `tmd` CLI tool via [Mint](https://github.com/yonaskolb/Mint):
