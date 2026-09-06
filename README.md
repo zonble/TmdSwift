@@ -8,10 +8,6 @@ Original project: [https://github.com/aguai/TMDLang](https://github.com/aguai/TM
 
 ## About TMD
 
-正式的 TmdSwift 實作語法請參閱
-[`docs/TMD-Language-Specification.zh-TW.md`](docs/TMD-Language-Specification.zh-TW.md)（English: [`docs/TMD-Language-Specification.en.md`](docs/TMD-Language-Specification.en.md)）。
-原始設計筆記則保留於 [`docs/Band-Score.syntax.zh_TW.md`](docs/Band-Score.syntax.zh_TW.md)。
-
 TMD is a plain-text musical notation DSL designed by composer and music producer 阿怪 (aguai, known for classics such as A-Mei's 《三天三夜》). It allows musicians and arrangers to describe multi-track songs, numbered musical notation (jianpu), chord progressions, tuplets, and playback arrangements in a concise, human-readable text format.
 
 In the age of generative AI, TMD can also serve as a music-native intermediate representation between a creator's intent and final music files:
@@ -37,6 +33,30 @@ At its core, TMD reflects the practical workflow and mental model of modern popu
 - **ABC Notation** exporter (`TmdABC`) for web sheet rendering (`abcjs`) and text-based score sharing.
 - **Offline WAV Audio** synthesizer (`TmdAudio`) powered by CoreAudio DLS SoundFont.
 - A command-line interface (`tmd`) powered by `swift-argument-parser`.
+
+## Co-Composing with AI Using TMD
+
+Because TMD is a concise, text-based, and human-readable musical notation DSL, it serves as an ideal bridge between human musical ideas and generative AI / Large Language Models (LLMs). Instead of wrestling with opaque binary formats (MIDI) or unstructured audio waveforms, creators and AI agents can pair-program music interactively in TMD:
+
+1. **Arranging Accompaniments from Melody**:
+   Draft a vocal line or melody in TMD, then prompt the AI to generate supporting tracks (bass lines, rhythm guitar grooves, string pads, or drum patterns) with specific entry offsets (`@|+4|`).
+
+2. **Motif Development & Continuation**:
+   Define a short 2-bar or 4-bar melodic motif, and let the AI develop it into complete phrases through inversion, retrograde, rhythmic variations, or antecedent-consequent question-and-answer phrasing.
+
+3. **Re-Harmonization & Chord Exploration**:
+   Provide a melody and have the AI propose multiple chord progressions—from standard pop and rock progressions to modal jazz substitutions and Neo-Soul extensions (`[Cmaj7]`, `[Am7]`, `[Dm7-5]`).
+
+4. **Macro Song Structuring & Modulations**:
+   Compose core song blocks (`intro`, `verse`, `chorus`, `bridge`) and have the AI plan the overarching playback sequence (`-> intro -> A -> B -> {?+1} -> B ->#`), complete with key modulations and emotional dynamics.
+
+5. **Textural Layering & Arrangement Build-Up**:
+   Use measure entry offsets (`@|0|`, `@|+4|`, `@|-1|`) to guide the AI in orchestrating gradual instrumentation build-ups, pick-up measures (anticipation notes), and dynamic contrast across sections.
+
+6. **Style & Metric Variations**:
+   Prompt the AI to adapt a 4/4 ballad into a 3/4 waltz, re-groove straight rhythms into syncopated Funk/R&B patterns, or add tuplet ornaments `(1 2 3)%(--)`.
+
+> 📖 **Detailed Guide & Prompt Examples**: See [`docs/AI-Co-Composing-With-TMD.md`](docs/AI-Co-Composing-With-TMD.md) for concrete workflows, step-by-step examples, and copy-pasteable prompt templates.
 
 ## Platform Support
 
@@ -148,6 +168,14 @@ let abc = TMDABCGenerator.generateABC(from: sheet)
 - **`TmdSkill`**: AI agent skill definitions and automated installation utilities for AI co-pilots.
 - **`TmdUtils`**: Cross-platform file path normalizer and character encoding detector.
 - **`TmdCLI`**: Command-line interface executable (`tmd`).
+
+## Documentation & Language Specification
+
+For the formal TMD language specification implemented in TmdSwift, please refer to:
+- English: [`docs/TMD-Language-Specification.en.md`](docs/TMD-Language-Specification.en.md)
+- Traditional Chinese: [`docs/TMD-Language-Specification.zh-TW.md`](docs/TMD-Language-Specification.zh-TW.md)
+
+Historical draft notes and original design concepts are preserved in [`docs/Band-Score.syntax.zh_TW.md`](docs/Band-Score.syntax.zh_TW.md).
 
 ## License
 
