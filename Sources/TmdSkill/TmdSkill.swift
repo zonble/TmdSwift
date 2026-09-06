@@ -330,10 +330,10 @@ When assisting human composers or generating new arrangements, follow genuine **
 ### 1. Motif-Driven Architecture
 - **Establish a Core Motif**: Begin by identifying or asking for the central melodic or rhythmic motif (usually 2 to 4 bars).
 - **Develop, Don't Discard**: Carry the motif across sections through genuine compositional techniques:
-  - *Sequence / Transposition (模進)*: Repeat the motif on higher or lower scale degrees.
-  - *Inversion (倒影)*: Flip interval directions.
-  - *Augmentation & Diminution (時值放大與縮小)*: Double or halve rhythmic durations for contrasting sections.
-  - *Antecedent-Consequent Phrasing (問答樂句)*: Frame phrases as question-and-answer pairs resolving on tonic or dominant degrees.
+  - *Sequence / Transposition*: Repeat the motif on higher or lower scale degrees.
+  - *Inversion*: Flip interval directions.
+  - *Augmentation & Diminution*: Double or halve rhythmic durations for contrasting sections.
+  - *Antecedent-Consequent Phrasing*: Frame phrases as question-and-answer pairs resolving on tonic or dominant degrees.
 
 ### 2. Voice Leading and Texture Balance
 - Maintain clear roles across tracks:
