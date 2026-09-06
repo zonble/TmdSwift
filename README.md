@@ -83,12 +83,17 @@ Once installed, your AI agent will automatically understand how to compose, arra
 
 Requires Swift 6.0+ / Xcode 16+.
 
-### Using Homebrew (macOS & Linux)
+### Install on macOS / Linux from Homebrew tap
 
 ```bash
 brew tap zonble/tmd
+brew tap --trust zonble/tmd  # allow this third-party tap
 brew install tmd
 ```
+
+If Homebrew refuses to install from an untrusted third-party tap, run the `brew tap --trust zonble/tmd` line and install again.
+
+On Linux, the Homebrew formula builds `tmd` with Homebrew's `swift` package (`brew install swift`). Without Homebrew, install Swift 6 from your distribution or Swift.org.
 
 ### Using Mint
 
