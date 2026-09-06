@@ -14,6 +14,13 @@ Original project: [https://github.com/aguai/TMDLang](https://github.com/aguai/TM
 
 TMD is a plain-text musical notation DSL designed by composer and music producer 阿怪 (aguai, known for classics such as A-Mei's 《三天三夜》). It allows musicians and arrangers to describe multi-track songs, numbered musical notation (jianpu), chord progressions, tuplets, and playback arrangements in a concise, human-readable text format.
 
+In the age of generative AI, TMD can also serve as a music-native intermediate representation between a creator's intent and final music files:
+- **More reliable musical generation**: AI can describe reusable motifs, chord progressions, arrangement changes, and key transpositions without regenerating every note, reducing structural and consistency errors.
+- **Lower token usage**: Repetition, variation, and transposition can be expressed as structure instead of duplicated note data.
+- **Preserved musical relationships**: The connection between a motif, its variations, and the overall song arrangement remains explicit.
+- **Verifiable and reproducible output**: Structured text is easier to validate, edit, regenerate, and review than unstructured generated audio.
+- **Interoperability**: TMD can be converted into MIDI, MusicXML, LilyPond, ABC notation, or audio for downstream tools.
+
 At its core, TMD reflects the practical workflow and mental model of modern popular music songwriting and arrangement:
 - **Lead-sheet and Jianpu thinking**: Melodies are expressed in movable-do numbered scale degrees (`1`–`7`), octaves (`^`, `_`), and accidentals (`'`, `,`), making transpositions and melodic contours intuitive without the visual clutter of traditional staves.
 - **Harmony-first architecture**: Chord symbols (both harmonic scale degrees like `[1]`, `[6m]` and standard chord names like `[Cmaj7]`) are treated as first-class citizens alongside melody lines.
