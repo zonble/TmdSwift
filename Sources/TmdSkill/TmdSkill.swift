@@ -303,6 +303,87 @@ tmd score.tmd -w output.wav
 # 7. Install this skill into AI agent directories
 tmd --install-skills
 ```
+
+---
+
+## 10. AI Composition Methodology: Modular Section-Based Chunking
+
+Unlike unstructured audio waveforms (e.g. Suno/Udio) or monolithic continuous notation (e.g. monolithic ABC/MusicXML files), TMD is built on **Modular Section-Based Chunking**. This provides critical advantages for AI-assisted music generation:
+
+1. **Local Context Encapsulation**:
+   - Each section (`intro`, `verse`, `chorus`, `A1`, `B1`) is an isolated, self-contained block.
+   - When generating, editing, or orchestrating a specific section (e.g. expanding an 8-measure Chorus to 13 orchestral tracks), the AI only needs to focus on that specific section block, avoiding attention decay across long song timelines.
+
+2. **Error Isolation (No Measure Clock Drift)**:
+   - Rhythmic errors or miscalculations within one paragraph block are strictly localized. They do not cascade or offset measure alignment across subsequent sections.
+   - The AI can inspect compiler diagnostic messages (e.g. `tmd score.tmd -p`) and fix a single paragraph in isolation.
+
+3. **Progressive Layering and Orchestration**:
+   - Start with a single lead track (`verse:Vocal@|0|`), then layer accompanying instruments into the same section (`verse:CHORD@|0|`, `verse:Bass@|0|`, `verse:Drums@|+2|`) without altering the original melody.
+
+---
+
+## 11. Human Composition Principles & AI Co-Composing Patterns
+
+When assisting human composers or generating new arrangements, follow genuine **Human Composition Principles** rather than random note generation or style-collage diffusion:
+
+### 1. Motif-Driven Architecture
+- **Establish a Core Motif**: Begin by identifying or asking for the central melodic or rhythmic motif (usually 2 to 4 bars).
+- **Develop, Don't Discard**: Carry the motif across sections through genuine compositional techniques:
+  - *Sequence / Transposition (模進)*: Repeat the motif on higher or lower scale degrees.
+  - *Inversion (倒影)*: Flip interval directions.
+  - *Augmentation & Diminution (時值放大與縮小)*: Double or halve rhythmic durations for contrasting sections.
+  - *Antecedent-Consequent Phrasing (問答樂句)*: Frame phrases as question-and-answer pairs resolving on tonic or dominant degrees.
+
+### 2. Voice Leading and Texture Balance
+- Maintain clear roles across tracks:
+  - **Melody / Lead**: Clear vocal line or solo instrument.
+  - **Counter-Melody**: Secondary line filling pauses in the main melody.
+  - **Harmonic Pads & Fillers**: Sustained chords or arpeggiated movement.
+  - **Bass Line**: Root notes, inversions, and step-wise walking notes anchoring the harmony.
+  - **Rhythm Section**: Metric groove establishing tempo and dynamic drive.
+
+### 3. Practical AI Co-Composing Patterns
+AI agents should assist human composers through these distinct collaborative patterns:
+- **Pattern A: Lead-to-Arrangement**: Given a human melody, generate multi-track accompaniment (chords, bassline, percussion).
+- **Pattern B: Motif Continuation**: Given a 2-bar or 4-bar human idea, develop it into a complete structured A/B section.
+- **Pattern C: Re-Harmonization**: Propose alternative chord progressions (e.g., standard pop, secondary dominants, modal mixture, or jazz extensions like `[Cmaj9]`, `[Am7]`, `[6m]`, `[2m7-5]`).
+- **Pattern D: Style Transformation**: Convert a pop/folk lead sheet into multi-part strings, big band brass, or a full symphony orchestra.
+- **Pattern E: Validation & Ear Check Loop**: Run `tmd score.tmd -p` to verify syntax, then render offline audio via `tmd score.tmd -w preview.wav` so the composer can immediately verify voice leading with their ears.
+
+---
+
+## 12. Contrapuntal Techniques: Canon and Fugue
+
+Writing contrapuntal and polyphonic forms requires strict temporal synchronization and voice independence. TMD's track offset syntax (`@|+N|`) makes constructing canons and fugues deterministic and token-efficient for AI agents:
+
+### 1. Strict Canon with Measure Offsets
+In traditional notation, writing a canon requires manually filling preceding rests in entering voices. In TMD, use `@|+N|` to delay entering voices without padding rest tokens:
+
+```tmd
+/* Two-Voice Canon at the Octave, 2 measures delayed */
+canon:Violin1@|0|{
+    <4*>
+    1 2 3 1 | 3 4 5 - | 5 6 5 4 | 3 - 1 - |
+    2 5_ 1 - | - - - - |
+}
+
+canon:Violin2@|+2|{
+    <4*>
+    1 2 3 1 | 3 4 5 - | 5 6 5 4 | 3 - 1 - |
+    2 5_ 1 - | - - - - |
+}
+```
+
+For a **Canon at the Fifth**, transpose the melody by 4 scale degrees (or use `{?+7}` directives) when authoring the follower voice.
+
+### 2. Fugue Architecture
+Follow standard classical/baroque fugal exposition principles:
+- **Subject (Dux)**: The primary theme stated alone by Voice 1 (`@|0|`) in the tonic key.
+- **Answer (Comes)**: Voice 2 enters at `@|+2|` or `@|+4|`, transposed to the dominant (5th above / 4th below).
+- **Countersubject**: While Voice 2 plays the Answer, Voice 1 continues with a contrasting counter-melody, maintaining complementary rhythmic motion (e.g., when one voice sustains, the other moves).
+- **Episode**: Modulating passages using fragments of the Subject with motivic sequencing.
+- **Stretto**: In climactic sections, introduce successive voice entries at narrower measure offsets (e.g., `@|+1|` instead of `@|+4|`) before previous statements finish, intensifying dramatic tension.
 """
 
     /// Standard installation paths for AI agent skills across the system.

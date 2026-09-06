@@ -718,6 +718,12 @@ import TmdSkill
     #expect(TmdSkill.skillMarkdown.contains("name: tmd"))
     #expect(TmdSkill.skillMarkdown.contains("::SCORE::"))
     #expect(TmdSkill.skillMarkdown.contains("--install-skills"))
+    #expect(TmdSkill.skillMarkdown.contains("Modular Section-Based Chunking"))
+    #expect(TmdSkill.skillMarkdown.contains("Human Composition Principles"))
+    #expect(TmdSkill.skillMarkdown.contains("AI Co-Composing Patterns"))
+    #expect(TmdSkill.skillMarkdown.contains("Contrapuntal Techniques: Canon and Fugue"))
+    #expect(TmdSkill.skillMarkdown.contains("Strict Canon with Measure Offsets"))
+    #expect(TmdSkill.skillMarkdown.contains("Fugue Architecture"))
 
     let tempDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tmd-skill-test-\(UUID().uuidString)")
     let targetSkillDir = tempDir.appendingPathComponent("skills/tmd")
