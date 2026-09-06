@@ -181,6 +181,36 @@ let abc = TMDABCGenerator.generateABC(from: sheet)
 - **`TmdUtils`**: Cross-platform file path normalizer and character encoding detector.
 - **`TmdCLI`**: Command-line interface executable (`tmd`).
 
+## Editor Support
+
+You can edit TMD files with syntax highlighting, snippets, and export tools in both desktop and terminal editors:
+
+### 1. Visual Studio Code
+
+The repository includes an official VS Code extension in [`editor/vscode`](editor/vscode):
+- **Syntax Highlighting & Snippets**: Full grammar for TMD metadata, tracks, numbered notation, chords, tuplets, and arrangement flow.
+- **Export & Playback Commands** (via `tmd` CLI):
+  - `TMD: Play Audio Preview in Terminal` (editor top-right title bar & context menu)
+  - `TMD: Export to MIDI (.mid)`
+  - `TMD: Export to MusicXML (.musicxml)`
+  - `TMD: Export to ABC Notation (.abc)`
+  - `TMD: Export to LilyPond (.ly)`
+  - `TMD: Render to PDF via LilyPond (.pdf)`
+  - `TMD: Render to WAV Audio (.wav)`
+  - `TMD: Install AI Agent Skills`
+
+To install locally:
+```bash
+ln -s "$(pwd)/editor/vscode" ~/.vscode/extensions/tmd-vscode
+```
+
+### 2. zago (Terminal Editor with Native TMD Integration)
+
+[**zago**](https://github.com/zonble/zago) is a modern modal terminal editor (with Web & desktop editions) that provides first-class native TMD score support:
+- **Real-time TMD Playback**: Press `Ctrl+P` or use `:tmd play` to preview scores directly within the terminal or browser (via Web MIDI / JZZ synth).
+- **Export Menu & Shortcuts**: Press `Ctrl+E` or run `:tmd export <format>` to export to MIDI, MusicXML, ABC, LilyPond, PDF, or WAV on the fly.
+- **Syntax Highlighting**: Dedicated TMD syntax highlighting and buffer status notifications.
+
 ## Documentation & Language Specification
 
 For the formal TMD language specification implemented in TmdSwift, please refer to:
