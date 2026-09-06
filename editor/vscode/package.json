@@ -14,9 +14,14 @@
   "engines": {
     "vscode": "^1.74.0"
   },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:tmd"
+  ],
   "categories": [
     "Programming Languages",
-    "Snippets"
+    "Snippets",
+    "Other"
   ],
   "contributes": {
     "languages": [
@@ -44,6 +49,104 @@
         "language": "tmd",
         "path": "./snippets/tmd.code-snippets"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "tmd.exportMIDI",
+        "title": "Export to MIDI (.mid)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.exportMusicXML",
+        "title": "Export to MusicXML (.musicxml)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.exportABC",
+        "title": "Export to ABC Notation (.abc)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.exportLilyPond",
+        "title": "Export to LilyPond (.ly)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.renderPDF",
+        "title": "Render to PDF via LilyPond (.pdf)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.renderWAV",
+        "title": "Render to WAV Audio (.wav)",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.playAudio",
+        "title": "Play Audio Preview in Terminal",
+        "category": "TMD"
+      },
+      {
+        "command": "tmd.installSkills",
+        "title": "Install AI Agent Skills",
+        "category": "TMD"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "tmd.playAudio",
+          "when": "editorLangId == tmd",
+          "group": "tmd_preview@1"
+        },
+        {
+          "command": "tmd.exportMIDI",
+          "when": "editorLangId == tmd",
+          "group": "tmd_export@1"
+        },
+        {
+          "command": "tmd.exportMusicXML",
+          "when": "editorLangId == tmd",
+          "group": "tmd_export@2"
+        },
+        {
+          "command": "tmd.exportABC",
+          "when": "editorLangId == tmd",
+          "group": "tmd_export@3"
+        },
+        {
+          "command": "tmd.renderWAV",
+          "when": "editorLangId == tmd",
+          "group": "tmd_export@4"
+        },
+        {
+          "command": "tmd.renderPDF",
+          "when": "editorLangId == tmd",
+          "group": "tmd_export@5"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "tmd.playAudio",
+          "when": "editorLangId == tmd",
+          "group": "navigation@1"
+        },
+        {
+          "command": "tmd.renderWAV",
+          "when": "editorLangId == tmd",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TMD",
+      "properties": {
+        "tmd.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to the tmd command line tool. If empty, the extension looks for 'tmd' in the system PATH."
+        }
+      }
+    }
   }
 }

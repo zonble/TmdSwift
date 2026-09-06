@@ -21,6 +21,15 @@ Official Visual Studio Code extension providing language support, syntax highlig
   - `sec`: Inserts a section rhythmic grid.
   - `tup`: Inserts a tuplet group.
   - `ch`: Inserts a chord symbol.
+- **Commands & Export Integrations** (via `tmd` CLI):
+  - `TMD: Play Audio Preview in Terminal` (editor top-right title bar & context menu)
+  - `TMD: Export to MIDI (.mid)`
+  - `TMD: Export to MusicXML (.musicxml)`
+  - `TMD: Export to ABC Notation (.abc)`
+  - `TMD: Export to LilyPond (.ly)`
+  - `TMD: Render to PDF via LilyPond (.pdf)`
+  - `TMD: Render to WAV Audio (.wav)`
+  - `TMD: Install AI Agent Skills`
 - **Language Configuration**:
   - Auto-closing pairs and surrounding brackets for `{}`, `[]`, `()`, `<>`, `/**/`, `****`.
   - Code folding for paragraph blocks `{ ... }`.
