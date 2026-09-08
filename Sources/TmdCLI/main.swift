@@ -6,6 +6,7 @@ import TmdMusicXML
 import TmdLilyPond
 import TmdAudio
 import TmdABC
+import TmdReaper
 import TmdSkill
 
 struct TmdCLICommand: ParsableCommand {
@@ -30,6 +31,9 @@ struct TmdCLICommand: ParsableCommand {
 
     @Option(name: [.short, .long], help: "Export to MIDI file at the specified path.")
     var midiOutput: String?
+
+    @Option(name: [.customShort("r"), .long], help: "Export to REAPER project (.rpp) file at the specified path.")
+    var reaperOutput: String?
 
     @Option(name: [.customShort("x"), .long], help: "Export to MusicXML file at the specified path.")
     var musicxmlOutput: String?
@@ -102,6 +106,19 @@ struct TmdCLICommand: ParsableCommand {
                 print("MIDI exported successfully to \(outputPath) (\(midiData.count) bytes)")
             } catch {
                 print("Error saving MIDI to \(outputPath): \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
+
+        // Export to REAPER project (.rpp) if requested
+        if let rppPath = reaperOutput {
+            let rppString = TMDReaperGenerator.generateRPP(from: sheet)
+            let outURL = URL(fileURLWithPath: rppPath)
+            do {
+                try rppString.write(to: outURL, atomically: true, encoding: .utf8)
+                print("REAPER project exported successfully to \(rppPath) (\(rppString.utf8.count) bytes)")
+            } catch {
+                print("Error saving REAPER project to \(rppPath): \(error.localizedDescription)")
                 throw ExitCode.failure
             }
         }

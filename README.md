@@ -28,6 +28,7 @@ At its core, TMD reflects the practical workflow and mental model of modern popu
 - Normalized musical AST structures (`Beat`, `Note`, `Unit`, `Section`, `Paragraph`, `Order`, `Sheet`).
 - Formatter to serialize AST back to standard TMD syntax.
 - **Multi-track MIDI (SMF Type 1)** exporter (`TmdMIDI`).
+- **REAPER Project (.rpp)** exporter (`TmdReaper`) with tempo envelopes, section markers, and inline MIDI data.
 - **MusicXML 4.0** notation exporter (`TmdMusicXML`) for MuseScore, Sibelius, and web renderers.
 - **LilyPond** engraver exporter (`TmdLilyPond`) for publication-grade score typesetting and PDF rendering.
 - **ABC Notation** exporter (`TmdABC`) for web sheet rendering (`abcjs`) and text-based score sharing.
@@ -122,22 +123,25 @@ swift run tmd sample/三天三夜.tmd -p
 # 2. Export to Standard MIDI file
 swift run tmd sample/三天三夜.tmd -m score.mid
 
-# 3. Export to MusicXML (open with MuseScore, Sibelius, Finale, etc.)
+# 3. Export to REAPER project (.rpp) file
+swift run tmd sample/三天三夜.tmd -r score.rpp
+
+# 4. Export to MusicXML (open with MuseScore, Sibelius, Finale, etc.)
 swift run tmd sample/三天三夜.tmd -x score.musicxml
 
-# 4. Export to LilyPond (.ly) source file
+# 5. Export to LilyPond (.ly) source file
 swift run tmd sample/三天三夜.tmd -l score.ly
 
-# 5. Render directly to PDF using the local lilypond compiler
+# 6. Render directly to PDF using the local lilypond compiler
 swift run tmd sample/三天三夜.tmd --pdf-output score.pdf
 
-# 6. Export to ABC notation file (for abcjs or Markdown web rendering)
+# 7. Export to ABC notation file (for abcjs or Markdown web rendering)
 swift run tmd sample/三天三夜.tmd -a score.abc
 
-# 7. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
+# 8. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
 swift run tmd sample/三天三夜.tmd -w score.wav
 
-# 8. Install TMD skill definition for AI agents (Codex, Antigravity, Claude, etc.)
+# 9. Install TMD skill definition for AI agents (Codex, Antigravity, Claude, etc.)
 swift run tmd --install-skills
 ```
 

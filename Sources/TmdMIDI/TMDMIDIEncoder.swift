@@ -1,7 +1,7 @@
 import Foundation
 import TmdSwift
 
-enum MIDIMessage {
+public enum MIDIMessage: Equatable, Sendable {
     case trackName(String)
     case tempo(Double)
     case timeSignature(Beat)
@@ -12,9 +12,14 @@ enum MIDIMessage {
     case controlChange(channel: UInt8, controller: UInt8, value: UInt8)
 }
 
-struct MIDIEvent {
-    var tick: UInt32
-    var message: MIDIMessage
+public struct MIDIEvent: Equatable, Sendable {
+    public var tick: UInt32
+    public var message: MIDIMessage
+
+    public init(tick: UInt32, message: MIDIMessage) {
+        self.tick = tick
+        self.message = message
+    }
 }
 
 /// Encodes typed MIDI content into Standard MIDI File binary data.

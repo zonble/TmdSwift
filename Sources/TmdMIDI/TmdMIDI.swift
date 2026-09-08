@@ -52,7 +52,7 @@ public struct TMDMIDIGenerator {
         return initial + directives
     }
 
-    private static func instrumentEvents(
+    public static func instrumentEvents(
         timeline: PlaybackTimeline,
         instrument: String,
         midiInstrument: MIDIInstrument,

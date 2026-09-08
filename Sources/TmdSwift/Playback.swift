@@ -1,7 +1,7 @@
 import Foundation
 
 /// A format-independent musical item produced from a TMD score.
-public enum PlaybackContent: Equatable {
+public enum PlaybackContent: Equatable, Sendable {
     case note(Note)
     case chord(ChordSymbol)
     case rest
@@ -9,14 +9,14 @@ public enum PlaybackContent: Equatable {
 }
 
 /// The playback state effective at a point on the timeline.
-public struct PlaybackState: Equatable {
+public struct PlaybackState: Equatable, Sendable {
     public let tempo: Double
     public let keyOffset: Int
     public let timeSignature: Beat
 }
 
 /// A musical event expressed in quarter-note units.
-public struct PlaybackEvent: Equatable {
+public struct PlaybackEvent: Equatable, Sendable {
     public let position: Double
     public let duration: Double
     public let content: PlaybackContent
@@ -24,14 +24,14 @@ public struct PlaybackEvent: Equatable {
 }
 
 /// A directive applied at an absolute position on the playback timeline.
-public struct PlaybackDirectiveEvent: Equatable {
+public struct PlaybackDirectiveEvent: Equatable, Sendable {
     public let position: Double
     public let kind: SectionDirectiveKind
     public let state: PlaybackState
 }
 
 /// The common timeline consumed by format-specific exporters.
-public struct PlaybackTimeline: Equatable {
+public struct PlaybackTimeline: Equatable, Sendable {
     public let events: [PlaybackEvent]
     public let directives: [PlaybackDirectiveEvent]
     public let duration: Double
@@ -215,7 +215,8 @@ public enum TMDPlaybackRenderer {
         }
     }
 
-    private static func duration(of name: String, in sheet: Sheet) -> Double {
+    /// Calculates total quarter-note duration of a section/paragraph name in a sheet.
+    public static func duration(of name: String, in sheet: Sheet) -> Double {
         sheet.paragraphs
             .filter { $0.name == name }
             .map { paragraph in
@@ -228,7 +229,8 @@ public enum TMDPlaybackRenderer {
             .max() ?? 0
     }
 
-    private static func measureDuration(for beat: Beat) -> Double {
+    /// Calculates measure duration in quarter notes for a given beat signature.
+    public static func measureDuration(for beat: Beat) -> Double {
         Double(max(1, beat.count)) * 4.0 / Double(max(1, beat.noteValue))
     }
 }

@@ -2,7 +2,7 @@
 ///
 /// > Note: Originally named `Beat` in Aguai's C++ code, where the denominator
 /// > was named `node`.
-public struct Beat: Equatable {
+public struct Beat: Equatable, Sendable {
     /// Number of beats per measure (numerator), e.g. `4` in `4/4`.
     ///
     /// > Note: Originally named `count` in Aguai's C++ code.
@@ -402,7 +402,7 @@ public struct UnitGroup: Equatable {
 /// A directive is stored together with its position in ``Section.directives``.
 /// Its position is measured in the section's base units, so exporters can apply
 /// the change at the correct point in the rendered timeline.
-public enum SectionDirectiveKind: Equatable {
+public enum SectionDirectiveKind: Equatable, Sendable {
     /// Sets the tempo to an absolute BPM value.
     case tempo(Double)
 
@@ -420,7 +420,7 @@ public enum SectionDirectiveKind: Equatable {
 }
 
 /// A positioned local change in a TMD section.
-public struct SectionDirective: Equatable {
+public struct SectionDirective: Equatable, Sendable {
     /// Position measured in section base units, before the directive.
     public let position: Int
 

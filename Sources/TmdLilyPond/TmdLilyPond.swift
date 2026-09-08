@@ -35,9 +35,22 @@ public struct TMDLilyPondGenerator {
         let distinctInstruments = Array(Set(sheet.paragraphs.map { $0.instrument })).sorted()
         let instruments = distinctInstruments.isEmpty ? ["Piano"] : distinctInstruments
 
-        // Generate track music definitions for each instrument
+        var identifierMap: [String: String] = [:]
+        var usedNames: Set<String> = []
         for (idx, inst) in instruments.enumerated() {
-            let varName = sanitizeIdentifier(inst, index: idx)
+            var name = sanitizeIdentifier(inst, index: idx)
+            if usedNames.contains(name) {
+                let numberWords = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+                let suffix = idx < 10 ? numberWords[idx] : "N\(idx)"
+                name += suffix
+            }
+            usedNames.insert(name)
+            identifierMap[inst] = name
+        }
+
+        // Generate track music definitions for each instrument
+        for inst in instruments {
+            let varName = identifierMap[inst] ?? "Track"
             let isDrum = paragraphsContainPercussion(sheet.paragraphs, instrument: inst)
             ly += "\(varName) = \(isDrum ? "\\drummode " : ""){\n"
             ly += "  \\global\n"
@@ -48,8 +61,8 @@ public struct TMDLilyPondGenerator {
         // Score layout block
         ly += "\\score {\n"
         ly += "  <<\n"
-        for (idx, inst) in instruments.enumerated() {
-            let varName = sanitizeIdentifier(inst, index: idx)
+        for inst in instruments {
+            let varName = identifierMap[inst] ?? "Track"
             let isDrum = paragraphsContainPercussion(sheet.paragraphs, instrument: inst)
             let staffType = isDrum ? "DrumStaff" : "Staff"
             ly += """
@@ -75,24 +88,20 @@ public struct TMDLilyPondGenerator {
         sheet: Sheet,
         percussion: Bool
     ) -> String {
-        let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
+        let measures = TMDMeasureRenderer.renderMeasures(sheet: sheet, instrument: instrument)
         var result = "  "
-        var directiveIndex = 0
-        for event in timeline.events {
-            while directiveIndex < timeline.directives.count,
-                  timeline.directives[directiveIndex].position <= event.position {
-                result += formatDirective(timeline.directives[directiveIndex])
-                directiveIndex += 1
+
+        for measure in measures {
+            for directive in measure.directives {
+                result += formatDirective(directive)
             }
-            result += formatPlaybackEvent(event, percussion: percussion)
-            result += " "
+            for event in measure.events {
+                result += formatMeasureEvent(event, percussion: percussion)
+                result += " "
+            }
+            result += "|\n  "
         }
-        while directiveIndex < timeline.directives.count {
-            result += formatDirective(timeline.directives[directiveIndex])
-            directiveIndex += 1
-        }
-        result += "|\n"
-        return result
+        return result.trimmingCharacters(in: .whitespaces) + "\n"
     }
 
     private static func formatDirective(_ directive: PlaybackDirectiveEvent) -> String {
@@ -104,24 +113,44 @@ public struct TMDLilyPondGenerator {
         }
     }
 
-    private static func formatPlaybackEvent(_ event: PlaybackEvent, percussion: Bool) -> String {
-        let duration = formatQuarterDuration(event.duration)
+    private static func formatMeasureEvent(_ event: MeasureEvent, percussion: Bool) -> String {
+        let decomposed = NotationDuration.decompose(quarterNotes: event.duration)
         switch event.content {
         case .note(let note):
-            return "\(noteToLilyPondPitch(note, keyOffset: event.state.keyOffset))\(duration)"
+            let pitch = noteToLilyPondPitch(note, keyOffset: event.state.keyOffset)
+            var parts: [String] = []
+            for (idx, d) in decomposed.enumerated() {
+                let durStr = "\(d.baseDenominator)\(d.isDotted ? "." : "")"
+                let isLast = (idx == decomposed.count - 1)
+                let tie = (isLast ? (event.tieStart ? "~" : "") : "~")
+                parts.append("\(pitch)\(durStr)\(tie)")
+            }
+            return parts.joined(separator: " ")
         case .chord(let chord):
             let pitches = chordToLilyPondPitches(chord, keyOffset: event.state.keyOffset)
-            return "<\(pitches.joined(separator: " "))>\(duration)"
-        case .rest: return "r\(duration)"
+            let chordBody = "<\(pitches.joined(separator: " "))>"
+            var parts: [String] = []
+            for (idx, d) in decomposed.enumerated() {
+                let durStr = "\(d.baseDenominator)\(d.isDotted ? "." : "")"
+                let isLast = (idx == decomposed.count - 1)
+                let tie = (isLast ? (event.tieStart ? "~" : "") : "~")
+                parts.append("\(chordBody)\(durStr)\(tie)")
+            }
+            return parts.joined(separator: " ")
+        case .rest:
+            return decomposed.map { d in
+                "r\(d.baseDenominator)\(d.isDotted ? "." : "")"
+            }.joined(separator: " ")
         case .percussion(let pattern):
             let names = pattern.compactMap { ["X": "hh", "x": "hh", "T": "toml", "t": "toml", "S": "sn", "s": "sn"][$0] }
-            return names.map { "\($0)\(duration)" }.joined(separator: " ")
+            if names.isEmpty {
+                return decomposed.map { d in "r\(d.baseDenominator)\(d.isDotted ? "." : "")" }.joined(separator: " ")
+            }
+            return decomposed.map { d in
+                let durStr = "\(d.baseDenominator)\(d.isDotted ? "." : "")"
+                return names.map { "\($0)\(durStr)" }.joined(separator: " ")
+            }.joined(separator: " ")
         }
-    }
-
-    private static func formatQuarterDuration(_ quarterNotes: Double) -> String {
-        let value = Int((4.0 / max(quarterNotes, 0.0001)).rounded())
-        return "\(max(1, value))"
     }
 
     private static func paragraphsContainPercussion(_ paragraphs: [Paragraph], instrument: String) -> Bool {
@@ -196,8 +225,16 @@ public struct TMDLilyPondGenerator {
     }
 
     private static func sanitizeIdentifier(_ string: String, index: Int) -> String {
-        let filtered = string.filter { $0.isLetter }
-        return filtered.isEmpty ? "track\(index + 1)" : filtered
+        let numberWords = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"]
+        var converted = ""
+        for ch in string {
+            if ch.isLetter {
+                converted.append(ch)
+            } else if let digit = ch.wholeNumberValue, (0...9).contains(digit) {
+                converted.append(numberWords[digit])
+            }
+        }
+        return converted.isEmpty ? "Track\(index + 1)" : converted
     }
 
     private static func escapeLilyPond(_ string: String) -> String {

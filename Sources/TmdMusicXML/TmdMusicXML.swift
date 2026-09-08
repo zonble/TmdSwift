@@ -69,58 +69,42 @@ public struct TMDMusicXMLGenerator {
         sheet: Sheet,
         divisions: Int
     ) -> String {
-        let timeline = TMDPlaybackRenderer.render(sheet: sheet, instrument: instrument)
-        let measureDuration = Double(max(1, sheet.beat.count)) * 4.0 / Double(max(1, sheet.beat.noteValue))
-        let measureCount = max(1, Int(ceil(timeline.duration / measureDuration)))
+        let measures = TMDMeasureRenderer.renderMeasures(sheet: sheet, instrument: instrument)
         var xml = ""
-        var eventIndex = 0
-        var directiveIndex = 0
 
-        for measure in 0..<measureCount {
-            let start = Double(measure) * measureDuration
-            let end = start + measureDuration
+        for measure in measures {
             var content = ""
-            if measure == 0 {
+            if measure.index == 0 {
                 content += generateAttributesXML(sheet: sheet, divisions: divisions)
             }
-            while directiveIndex < timeline.directives.count,
-                  timeline.directives[directiveIndex].position < end {
-                let directive = timeline.directives[directiveIndex]
-                if directive.position >= start {
-                    content += generatePlaybackDirectiveXML(directive)
-                }
-                directiveIndex += 1
+            for directive in measure.directives {
+                content += generatePlaybackDirectiveXML(directive)
             }
 
-            var cursor = start
-            while eventIndex < timeline.events.count,
-                  timeline.events[eventIndex].position < end {
-                let event = timeline.events[eventIndex]
-                if event.position >= start {
-                    let gap = event.position - cursor
-                    if gap > 0 {
-                        content += generateRestXML(duration: Int((gap * Double(divisions)).rounded()))
-                    }
-                    let duration = max(1, Int((event.duration * Double(divisions)).rounded()))
-                    switch event.content {
-                    case .note(let note):
-                        content += generateNoteXML(note: note, duration: duration, keyOffset: event.state.keyOffset)
-                    case .chord(let chord):
-                        content += generateChordXML(chordName: chord.description, duration: duration, keyOffset: event.state.keyOffset)
-                    case .rest:
-                        content += generateRestXML(duration: duration)
-                    case .percussion(let pattern):
-                        content += generatePercussionXML(pattern: pattern, duration: duration)
-                    }
-                    cursor = event.position + event.duration
+            for event in measure.events {
+                let duration = max(1, Int((event.duration * Double(divisions)).rounded()))
+                switch event.content {
+                case .note(let note):
+                    content += generateNoteXML(
+                        note: note,
+                        duration: duration,
+                        keyOffset: event.state.keyOffset,
+                        tieStart: event.tieStart,
+                        tieStop: event.tieStop
+                    )
+                case .chord(let chord):
+                    content += generateChordXML(
+                        chordName: chord.description,
+                        duration: duration,
+                        keyOffset: event.state.keyOffset
+                    )
+                case .rest:
+                    content += generateRestXML(duration: duration)
+                case .percussion(let pattern):
+                    content += generatePercussionXML(pattern: pattern, duration: duration)
                 }
-                eventIndex += 1
             }
-            let remaining = end - cursor
-            if remaining > 0 {
-                content += generateRestXML(duration: Int((remaining * Double(divisions)).rounded()))
-            }
-            xml += "    <measure number=\"\(measure + 1)\">\n\(content)    </measure>\n\n"
+            xml += "    <measure number=\"\(measure.index + 1)\">\n\(content)    </measure>\n\n"
         }
         return xml
     }
@@ -166,19 +150,27 @@ public struct TMDMusicXMLGenerator {
             default: return nil
             }
         }
-        let noteDuration = max(1, duration / max(1, notes.count))
-        return notes.map { step, octave in
-            """
+        if notes.isEmpty {
+            return generateRestXML(duration: duration)
+        }
+        let count = notes.count
+        let base = duration / count
+        let remainder = duration % count
+        var xml = ""
+        for (i, (step, octave)) in notes.enumerated() {
+            let noteDur = base + (i < remainder ? 1 : 0)
+            xml += """
                     <note>
                       <unpitched>
                         <display-step>\(step)</display-step>
                         <display-octave>\(octave)</display-octave>
                       </unpitched>
-                      <duration>\(noteDuration)</duration>
+                      <duration>\(noteDur)</duration>
                     </note>
 
             """
-        }.joined()
+        }
+        return xml
     }
 
     private static func generateAttributesXML(sheet: Sheet, divisions: Int) -> String {
@@ -210,7 +202,13 @@ public struct TMDMusicXMLGenerator {
         """
     }
 
-    private static func generateNoteXML(note: Note, duration: Int, keyOffset: Int) -> String {
+    private static func generateNoteXML(
+        note: Note,
+        duration: Int,
+        keyOffset: Int,
+        tieStart: Bool = false,
+        tieStop: Bool = false
+    ) -> String {
         let (step, alter, octave) = pitchToStepAlterOctave(note: note, keyOffset: keyOffset)
         var xml = """
                 <note>
@@ -225,9 +223,25 @@ public struct TMDMusicXMLGenerator {
                     <octave>\(octave)</octave>
                   </pitch>
                   <duration>\(duration)</duration>
-                </note>
 
         """
+        if tieStop {
+            xml += "          <tie type=\"stop\"/>\n"
+        }
+        if tieStart {
+            xml += "          <tie type=\"start\"/>\n"
+        }
+        if tieStart || tieStop {
+            xml += "          <notations>\n"
+            if tieStop {
+                xml += "            <tied type=\"stop\"/>\n"
+            }
+            if tieStart {
+                xml += "            <tied type=\"start\"/>\n"
+            }
+            xml += "          </notations>\n"
+        }
+        xml += "        </note>\n\n"
         return xml
     }
 
