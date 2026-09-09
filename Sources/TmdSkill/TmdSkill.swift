@@ -297,10 +297,13 @@ tmd score.tmd --pdf-output score.pdf
 # 5. Export to ABC notation (.abc) for web sheets (abcjs)
 tmd score.tmd -a score.abc
 
-# 6. Render offline WAV audio (macOS DLS / SoundFont)
+# 6. Export to ChordPro (.cho) lead sheet
+tmd score.tmd -c score.cho
+
+# 7. Render offline WAV audio (macOS DLS / SoundFont)
 tmd score.tmd -w output.wav
 
-# 7. Install this skill into AI agent directories
+# 8. Install this skill into AI agent directories
 tmd --install-skills
 ```
 

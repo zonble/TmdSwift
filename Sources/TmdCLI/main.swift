@@ -6,6 +6,7 @@ import TmdMusicXML
 import TmdLilyPond
 import TmdAudio
 import TmdABC
+import TmdChordPro
 import TmdReaper
 import TmdSkill
 
@@ -43,6 +44,9 @@ struct TmdCLICommand: ParsableCommand {
 
     @Option(name: [.customShort("a"), .long], help: "Export to ABC notation (.abc) file at the specified path.")
     var abcOutput: String?
+
+    @Option(name: [.customShort("c"), .customLong("chordpro-output"), .customLong("cho-output")], help: "Export to ChordPro (.cho) file at the specified path.")
+    var chordproOutput: String?
 
     @Option(name: [.long], help: "Render PDF score using lilypond compiler.")
     var pdfOutput: String?
@@ -183,6 +187,19 @@ struct TmdCLICommand: ParsableCommand {
                 print("ABC notation exported successfully to \(abcPath) (\(abcString.utf8.count) bytes)")
             } catch {
                 print("Error saving ABC notation: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
+
+        // Export to ChordPro if requested
+        if let choPath = chordproOutput {
+            let choString = TMDChordProGenerator.generateChordPro(from: sheet)
+            let outURL = URL(fileURLWithPath: choPath)
+            do {
+                try choString.write(to: outURL, atomically: true, encoding: .utf8)
+                print("ChordPro exported successfully to \(choPath) (\(choString.utf8.count) bytes)")
+            } catch {
+                print("Error saving ChordPro file: \(error.localizedDescription)")
                 throw ExitCode.failure
             }
         }

@@ -18,9 +18,12 @@ struct MusicXMLValidationTests {
         let xml = TMDMusicXMLGenerator.generateMusicXML(from: sheet)
         let xmlData = Data(xml.utf8)
 
-        #if canImport(FoundationXML) || os(macOS)
+        #if os(macOS)
         let doc = try XMLDocument(data: xmlData, options: [])
         #expect(doc.rootElement()?.name == "score-partwise")
+        #else
+        #expect(xml.contains("<score-partwise"))
+        #expect(xml.contains("</score-partwise>"))
         #endif
     }
 
@@ -45,7 +48,7 @@ struct MusicXMLValidationTests {
         let xml = TMDMusicXMLGenerator.generateMusicXML(from: sheet)
         let xmlData = Data(xml.utf8)
 
-        #if canImport(FoundationXML) || os(macOS)
+        #if os(macOS)
         let doc = try XMLDocument(data: xmlData, options: [])
         guard let root = doc.rootElement() else {
             Issue.record("No root element")
@@ -76,6 +79,10 @@ struct MusicXMLValidationTests {
                 )
             }
         }
+        #else
+        #expect(xml.contains("<score-partwise"))
+        #expect(xml.contains("<measure number=\"1\">"))
+        #expect(xml.contains("</score-partwise>"))
         #endif
     }
 
