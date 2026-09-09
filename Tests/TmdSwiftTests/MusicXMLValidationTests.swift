@@ -11,7 +11,7 @@ struct MusicXMLValidationTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("sample/三天三夜.tmd")
+            .appendingPathComponent("sample/basic/三天三夜.tmd")
         let data = try Data(contentsOf: sampleURL)
         let sheet = try TmdParser.parseThrowing(data: data)
 
@@ -107,7 +107,7 @@ struct MusicXMLValidationTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("sample/三天三夜.tmd")
+            .appendingPathComponent("sample/basic/三天三夜.tmd")
         let sheet = try TmdParser.parseThrowing(url: sampleURL)
 
         let xml = TMDMusicXMLGenerator.generateMusicXML(from: sheet)

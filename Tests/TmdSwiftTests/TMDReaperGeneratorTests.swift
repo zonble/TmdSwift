@@ -130,7 +130,7 @@ struct TMDReaperGeneratorTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("sample/三天三夜.tmd")
+            .appendingPathComponent("sample/basic/三天三夜.tmd")
         let sheet = try TmdParser.parseThrowing(filePathOrURL: sampleURL.path)
         let rpp = TMDReaperGenerator.generateRPP(from: sheet)
 

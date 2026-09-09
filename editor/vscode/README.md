@@ -44,4 +44,4 @@ You can link this folder directly into your VS Code extensions directory:
 ln -s "$(pwd)/editor/vscode" ~/.vscode/extensions/tmd-vscode
 ```
 
-Then reload VS Code, open any `.tmd` file (such as `sample/三天三夜.tmd`), and enjoy full syntax highlighting!
+Then reload VS Code, open any `.tmd` file (such as `sample/basic/三天三夜.tmd`), and enjoy full syntax highlighting!

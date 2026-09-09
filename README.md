@@ -118,28 +118,28 @@ You can run the command line tool directly with `swift run tmd`:
 
 ```bash
 # 1. Parse and print score summary
-swift run tmd sample/三天三夜.tmd -p
+swift run tmd sample/basic/三天三夜.tmd -p
 
 # 2. Export to Standard MIDI file
-swift run tmd sample/三天三夜.tmd -m score.mid
+swift run tmd sample/basic/三天三夜.tmd -m score.mid
 
 # 3. Export to REAPER project (.rpp) file
-swift run tmd sample/三天三夜.tmd -r score.rpp
+swift run tmd sample/basic/三天三夜.tmd -r score.rpp
 
 # 4. Export to MusicXML (open with MuseScore, Sibelius, Finale, etc.)
-swift run tmd sample/三天三夜.tmd -x score.musicxml
+swift run tmd sample/basic/三天三夜.tmd -x score.musicxml
 
 # 5. Export to LilyPond (.ly) source file
-swift run tmd sample/三天三夜.tmd -l score.ly
+swift run tmd sample/basic/三天三夜.tmd -l score.ly
 
 # 6. Render directly to PDF using the local lilypond compiler
-swift run tmd sample/三天三夜.tmd --pdf-output score.pdf
+swift run tmd sample/basic/三天三夜.tmd --pdf-output score.pdf
 
 # 7. Export to ABC notation file (for abcjs or Markdown web rendering)
-swift run tmd sample/三天三夜.tmd -a score.abc
+swift run tmd sample/basic/三天三夜.tmd -a score.abc
 
 # 8. Render to WAV audio file (macOS built-in DLS or custom SoundFont)
-swift run tmd sample/三天三夜.tmd -w score.wav
+swift run tmd sample/basic/三天三夜.tmd -w score.wav
 
 # 9. Install TMD skill definition for AI agents (Codex, Antigravity, Claude, etc.)
 swift run tmd --install-skills
@@ -165,7 +165,7 @@ import TmdLilyPond
 import TmdABC
 
 // Parse TMD from file or URL
-guard let sheet = try TmdParser.parse(filePathOrURL: "sample/三天三夜.tmd") else {
+guard let sheet = try TmdParser.parse(filePathOrURL: "sample/basic/三天三夜.tmd") else {
     fatalError("Failed to parse")
 }
 

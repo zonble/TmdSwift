@@ -150,7 +150,7 @@ import TmdSkill
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-        .appendingPathComponent("sample/三天三夜.tmd")
+        .appendingPathComponent("sample/basic/三天三夜.tmd")
     let data = try Data(contentsOf: sampleURL)
     let sheet = TmdParser.parse(data: data)
     #expect(sheet != nil)
@@ -197,12 +197,38 @@ import TmdSkill
     }
 }
 
+@Test func testAllSampleScoresParseSuccessfully() throws {
+    let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let sampleURL = repoRoot.appendingPathComponent("sample")
+
+    let enumerator = FileManager.default.enumerator(
+        at: sampleURL,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    )
+
+    var testedCount = 0
+    while let fileURL = enumerator?.nextObject() as? URL {
+        guard fileURL.pathExtension == "tmd" else { continue }
+        let sheet = try TmdParser.parseThrowing(url: fileURL)
+        #expect(!sheet.name.isEmpty, "Score in \(fileURL.lastPathComponent) should have a name")
+        #expect(sheet.speed > 0, "Score in \(fileURL.lastPathComponent) should have positive BPM")
+        #expect(!sheet.paragraphs.isEmpty, "Score in \(fileURL.lastPathComponent) should have paragraphs")
+        testedCount += 1
+    }
+
+    #expect(testedCount >= 20, "Expected at least 20 sample TMD scores to be tested, found \(testedCount)")
+}
+
 @Test func testFileURLAndEncoding() throws {
     let sampleURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
         .deletingLastPathComponent()
-        .appendingPathComponent("sample/三天三夜.tmd")
+        .appendingPathComponent("sample/basic/三天三夜.tmd")
 
     // Test URL parsing
     let sheetFromURL = try TmdParser.parse(url: sampleURL)

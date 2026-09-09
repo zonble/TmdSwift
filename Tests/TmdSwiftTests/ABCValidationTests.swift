@@ -11,7 +11,7 @@ struct ABCValidationTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("sample/三天三夜.tmd")
+            .appendingPathComponent("sample/basic/三天三夜.tmd")
         let sheet = try TmdParser.parseThrowing(url: sampleURL)
 
         let abc = TMDABCGenerator.generateABC(from: sheet)
