@@ -131,7 +131,9 @@ import TmdSkill
         #expect(error.text == "not-a-score")
         #expect(error.range.start.line == 1)
         #expect(error.range.start.column == 1)
+        #expect(error.expectedTokens.contains("::SCORE::"))
         #expect(error.description.contains("not-a-score"))
+        #expect(error.description.contains("expected ::SCORE::"))
     }
 }
 
@@ -142,6 +144,37 @@ import TmdSkill
     } catch let error as TMDParseError {
         #expect(error.text == "intro")
         #expect(error.range.start.line == 2)
+        #expect(error.expectedTokens.contains(":"))
+        #expect(error.description.contains("expected :"))
+    }
+}
+
+@Test func testThrowingParserReportsExpectedTokensForPunctuation() throws {
+    // Missing '@' in paragraph header
+    do {
+        _ = try TmdParser.parseThrowing(string: "::SCORE::\nintro:Piano|0|{\n<4*>\n1 2 3 4\n}")
+        Issue.record("Expected a parse error for missing @")
+    } catch let error as TMDParseError {
+        #expect(error.expectedTokens.contains("@"))
+        #expect(error.description.contains("expected @"))
+    }
+
+    // Missing '{' in paragraph header
+    do {
+        _ = try TmdParser.parseThrowing(string: "::SCORE::\nintro:Piano@|0|\n<4*>\n1 2 3 4\n}")
+        Issue.record("Expected a parse error for missing {")
+    } catch let error as TMDParseError {
+        #expect(error.expectedTokens.contains("{"))
+        #expect(error.description.contains("expected {"))
+    }
+
+    // Missing '<' inside paragraph section
+    do {
+        _ = try TmdParser.parseThrowing(string: "::SCORE::\nintro:Piano@|0|{\n4*>\n1 2 3 4\n}")
+        Issue.record("Expected a parse error for missing <")
+    } catch let error as TMDParseError {
+        #expect(error.expectedTokens.contains("<"))
+        #expect(error.description.contains("expected <"))
     }
 }
 

@@ -37,6 +37,43 @@ public enum Token: Equatable, Sendable {
     case tie                         // -
     case identifier(String)          // e.g. Piano, intro, C, A'
     case eof
+
+    public var expectedDescription: String {
+        switch self {
+        case .scoreHeader: return "::SCORE::"
+        case .doubleAsterisk: return "**"
+        case .speedPrefix: return "!="
+        case .relativeTempoPrefix: return "!+"
+        case .keySignaturePrefix: return "?="
+        case .openAngle: return "<"
+        case .slash: return "/"
+        case .asterisk: return "*"
+        case .closeAngle: return ">"
+        case .colon: return ":"
+        case .at: return "@"
+        case .pipe: return "|"
+        case .openBrace: return "{"
+        case .closeBrace: return "}"
+        case .openParen: return "("
+        case .closeParen: return ")"
+        case .percentOpenParen: return "%("
+        case .arrow: return "->"
+        case .arrowEnd: return "->#"
+        case .relativeOrderPrefix: return "{?"
+        case .absoluteOrderPrefix: return "{?="
+        case .number: return "number"
+        case .positiveNumber: return "positive number"
+        case .double: return "decimal number"
+        case .note: return "note"
+        case .chord: return "chord"
+        case .percussion: return "percussion"
+        case .metadata: return "metadata"
+        case .programText: return "program block"
+        case .tie: return "-"
+        case .identifier: return "identifier"
+        case .eof: return "end of input"
+        }
+    }
 }
 
 /// A source position measured in both scalar offset and human-readable line/column.
@@ -67,11 +104,30 @@ public struct TMDParseError: Error, Equatable, CustomStringConvertible, Localize
     public let token: Token
     public let text: String
     public let range: SourceRange
+    public let expectedTokens: [String]
+
+    public init(
+        message: String,
+        token: Token,
+        text: String,
+        range: SourceRange,
+        expectedTokens: [String] = []
+    ) {
+        self.message = message
+        self.token = token
+        self.text = text
+        self.range = range
+        self.expectedTokens = expectedTokens
+    }
 
     public var errorDescription: String? { description }
 
     public var description: String {
-        "\(message) at \(range.start.line):\(range.start.column): `\(text)`"
+        var desc = "\(message) at \(range.start.line):\(range.start.column): `\(text)`"
+        if !expectedTokens.isEmpty {
+            desc += " (expected \(expectedTokens.joined(separator: ", ")))"
+        }
+        return desc
     }
 }
 
@@ -454,12 +510,24 @@ public struct TmdParser {
         guard let sheet = parser.parseSheet() else {
             let index = diagnosticIndex(parser.failureIndex ?? parser.position, tokenCount: lexedTokens.count)
             let offending = lexedTokens[index]
-            throw TMDParseError(message: "Unexpected token", token: offending.token, text: offending.text, range: offending.range)
+            throw TMDParseError(
+                message: "Unexpected token",
+                token: offending.token,
+                text: offending.text,
+                range: offending.range,
+                expectedTokens: parser.expectedTokens
+            )
         }
         if let failureIndex = parser.failureIndex {
             let index = diagnosticIndex(failureIndex, tokenCount: lexedTokens.count)
             let offending = lexedTokens[index]
-            throw TMDParseError(message: "Unexpected token", token: offending.token, text: offending.text, range: offending.range)
+            throw TMDParseError(
+                message: "Unexpected token",
+                token: offending.token,
+                text: offending.text,
+                range: offending.range,
+                expectedTokens: parser.expectedTokens
+            )
         }
         return sheet
     }
@@ -519,6 +587,7 @@ private struct TokenParser {
     private let tokens: [Token]
     private var pos: Int = 0
     private(set) var failureIndex: Int?
+    private(set) var expectedTokens: [String] = []
 
     var position: Int { pos }
 
@@ -542,12 +611,32 @@ private struct TokenParser {
         return tok
     }
 
+    private mutating func recordFailure(at index: Int, expected: [String]) {
+        if failureIndex == nil || index >= (failureIndex ?? 0) {
+            failureIndex = index
+            expectedTokens = expected
+        }
+    }
+
+    private mutating func recordFailure(at index: Int, expected: Token) {
+        recordFailure(at: index, expected: [expected.expectedDescription])
+    }
+
     @discardableResult
     private mutating func match(_ expected: Token) -> Bool {
         if current == expected {
             pos += 1
             return true
         }
+        return false
+    }
+
+    @discardableResult
+    private mutating func require(_ expected: Token) -> Bool {
+        if match(expected) {
+            return true
+        }
+        recordFailure(at: pos, expected: expected)
         return false
     }
 
@@ -558,8 +647,7 @@ private struct TokenParser {
     }
 
     mutating func parseSheet() -> Sheet? {
-        guard match(.scoreHeader) else {
-            failureIndex = pos
+        guard require(.scoreHeader) else {
             return nil
         }
 
@@ -689,7 +777,9 @@ private struct TokenParser {
                 if let paragraph = parseParagraph() {
                     paragraphs.append(paragraph)
                 } else {
-                    failureIndex = pos
+                    if failureIndex == nil {
+                        recordFailure(at: pos, expected: [Token.colon.expectedDescription])
+                    }
                     return nil
                 }
             }
@@ -705,8 +795,7 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.colon) else {
-            failureIndex = pos
+        guard require(.colon) else {
             return nil
         }
 
@@ -716,8 +805,7 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.at) else {
-            failureIndex = pos
+        guard require(.at) else {
             return nil
         }
 
@@ -752,8 +840,7 @@ private struct TokenParser {
             advance()
         }
 
-        guard match(.openBrace) else {
-            failureIndex = pos
+        guard require(.openBrace) else {
             return nil
         }
 
@@ -838,7 +925,7 @@ private struct TokenParser {
                 }
                 sections.append(Section(noteLength: noteLength, unitGroups: unitGroups, directives: directives))
             } else {
-                failureIndex = pos
+                recordFailure(at: pos, expected: .openAngle)
                 return nil
             }
         }
