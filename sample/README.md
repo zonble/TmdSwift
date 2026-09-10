@@ -43,8 +43,13 @@ Ensemble and band arrangements exploring contemporary genres, rhythm section gro
 | [`orz_flamenco_cadenza.tmd`](band/orz_flamenco_cadenza.tmd) | orz (Flamenco Instrumental Suite - Virtuoso Interlude Edition) | 116 / D | Extended cadenza, tremolo guitar solos, dynamic flamenco clapping/percussion. |
 | [`dodo_post_rock.tmd`](band/dodo_post_rock.tmd) | 豆豆是個好貓咪：五分鐘後搖滾史詩音牆 | 80 / D | Ambient guitar delays, crescendo dynamics, heavy wall-of-sound climax. |
 | [`legacy-postrock.tmd`](band/legacy-postrock.tmd) | Legacy (Post-Rock Epics Version) | 120 / E | Atmospheric post-rock build-up with polyrhythmic drum builds. |
-| [`legacy-rearranged.tmd`](band/legacy-rearranged.tmd) | Legacy (Re-arranged) | 125 / E | Polished pop/rock band arrangement with clean chord voice-leading. |
+| [`legacy-rearranged.tmd`](band/legacy-rearranged.tmd) | Legacy (Re-arranged) | 125 / E | Pop/rock band arrangement. [[🎤 Vocal Demo](https://www.youtube.com/watch?v=oCbqgfQBVMw) \| [🎹 Instrumental Demo](https://www.youtube.com/watch?v=W85DBL2xsHc)] |
 | [`haoqin_cyberpunk.tmd`](band/haoqin_cyberpunk.tmd) | 豪情 (Cyberpunk 2077 / Dark Synthwave 重裝工業電音版) | 124 / B | Rolling synth bass, industrial techno stomps, distorted synth leads. |
 | [`haoqin_death_metal.tmd`](band/haoqin_death_metal.tmd) | 豪情 (Pure Phrygian / Locrian Death Metal Version) | 180 / Dm | Blast beats, fast double-kick patterns, heavy palm-muted guitar riffs. |
 | [`haoqin_edm.tmd`](band/haoqin_edm.tmd) | 豪情 (Taiwan Cyber-Temple EDM Remix / 廟會電音三太子版) | 128 / Dm | 4-on-the-floor kicks, snare risers, drop synthesis and euphoric pluck leads. |
 | [`ai-moon.tmd`](band/ai-moon.tmd) | 月映寒江 | 72 / D | Chinese fusion chamber / ballad featuring bamboo flute and guzheng pluck arpeggios. |
+
+---
+
+> 💡 **Note on *Legacy***: 《Legacy》is an original song born alongside the `TmdSwift` project, dedicated to continuing aguai's vision. You can listen to the full vocal performance on [YouTube (Vocal)](https://www.youtube.com/watch?v=oCbqgfQBVMw) and the arrangement playback on [YouTube (Instrumental)](https://www.youtube.com/watch?v=W85DBL2xsHc).
+

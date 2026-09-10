@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.5] - 2026-09-11
+
+### Added
+- **REAPER Project (.rpp) Exporter (`TmdReaper`)**:
+  - Export multi-track TMD scores to Cockos REAPER project files with tempo envelopes, section markers, and inline MIDI data.
+- **ChordPro Notation Exporter (`TmdChordPro`)**:
+  - Export lead sheets and harmonic charts directly to ChordPro format (`.cho`).
+- **VOCALOID Exporters (`TmdVocaloid`)**:
+  - Export vocal tracks to VOCALOID2 (`.vsq`) and VOCALOID3/4 (`.vsqx`) formats with phoneme resolution (kana/romaji to X-SAMPA).
+- **Full 128 General MIDI Instrument Mapping**:
+  - Added complete coverage of all 128 GM instruments and numeric program changes.
+- **Improved Syntax Error Reporting**:
+  - The parser now reports expected tokens upon encountering syntax errors to aid debugging.
+- **Sample Scores & Demos**:
+  - Added *The ZONBLE Fugue* (Baroque chamber orchestra), *RSA Asymmetric Cryptography Symphony*, and diverse band arrangements.
+  - Linked official vocal and instrumental demos for the project theme song *Legacy*.
+
+## [0.1.4] - 2026-09-07
 
 ### Added
 - **Windows / Linux CI & Release Automation**:
@@ -16,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Export to MIDI (`.mid`), MusicXML (`.musicxml`), ABC Notation (`.abc`), LilyPond (`.ly`), PDF via LilyPond (`.pdf`), and offline WAV audio (`.wav`).
     - Audio preview playback directly in terminal from editor title bar and context menu.
     - Added one-click command to install AI agent skills (`tmd.installSkills`).
+
 
 ## [0.1.3] - 2026-09-06
 
