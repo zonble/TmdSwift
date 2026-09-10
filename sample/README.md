@@ -51,5 +51,5 @@ Ensemble and band arrangements exploring contemporary genres, rhythm section gro
 
 ---
 
-> 💡 **Note on *Legacy***: 《Legacy》is an original song born alongside the `TmdSwift` project, dedicated to continuing aguai's vision. You can listen to the full vocal performance on [YouTube (Vocal)](https://www.youtube.com/watch?v=oCbqgfQBVMw) and the arrangement playback on [YouTube (Instrumental)](https://www.youtube.com/watch?v=W85DBL2xsHc).
+> 💡 **Note on *Legacy***: 《Legacy》is an original song born alongside the `TmdSwift` project, dedicated as a tribute to all the heroes in one's life. You can listen to the full vocal performance on [YouTube (Vocal)](https://www.youtube.com/watch?v=oCbqgfQBVMw) and the arrangement playback on [YouTube (Instrumental)](https://www.youtube.com/watch?v=W85DBL2xsHc).
 
