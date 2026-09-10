@@ -670,10 +670,36 @@ import TmdSkill
     #expect(MIDIInstrument.resolve("Unknown") == .unknown)
     #expect(MIDIInstrument.resolve("Unknown").program == 0)
     #expect(MIDIInstrument.resolve("Chorus-1") == .choir)
+    #expect(MIDIInstrument.resolve("Viola").program == 41)
+    #expect(MIDIInstrument.resolve("Oboe").program == 68)
+    #expect(MIDIInstrument.resolve("Clarinet").program == 71)
+    #expect(MIDIInstrument.resolve("Harpsichord").program == 6)
+    #expect(MIDIInstrument.resolve("Timpani").program == 47)
+    #expect(MIDIInstrument.resolve("Marimba").program == 12)
+    #expect(MIDIInstrument.resolve("Harmonica").program == 22)
+    #expect(MIDIInstrument.resolve("Harp").program == 46)
+    #expect(MIDIInstrument.resolve("FrenchHorn").program == 60)
+    #expect(MIDIInstrument.resolve("Bassoon").program == 70)
+    #expect(MIDIInstrument.resolve("Piccolo").program == 72)
+    #expect(MIDIInstrument.resolve("Sitar").program == 104)
+    #expect(MIDIInstrument.resolve("Taiko").program == 116)
+    #expect(MIDIInstrument.resolve("Gunshot").program == 127)
+    #expect(MIDIInstrument.resolve("Prog:40").program == 40)
+    #expect(MIDIInstrument.resolve("73").program == 73)
     #expect(MIDIInstrument.resolve("Groove").isPercussion)
+    #expect(MIDIInstrument.resolve("Drums").isPercussion)
     #expect(TMDMusicXMLGenerator.generateMusicXML(from: sheet).contains("score-partwise"))
     #expect(TMDLilyPondGenerator.generateLilyPond(from: sheet).contains("\\score"))
     #expect(TMDABCGenerator.generateABC(from: sheet).contains("T:Fallback"))
+}
+
+@Test func testCompleteGeneralMIDI128InstrumentsCoverage() {
+    for prog in 0...127 {
+        let instFromNumber = MIDIInstrument.resolve("\(prog)")
+        #expect(instFromNumber.program == UInt8(prog))
+        let instFromProg = MIDIInstrument.resolve("program:\(prog)")
+        #expect(instFromProg.program == UInt8(prog))
+    }
 }
 
 @Test func testNegativeParagraphStartOffset() throws {

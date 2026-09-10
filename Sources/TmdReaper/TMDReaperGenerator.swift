@@ -226,25 +226,41 @@ public struct TMDReaperGenerator {
 
     private static func getTrackColor(_ midiInst: MIDIInstrument) -> UInt32 {
         var r: UInt32 = 120, g: UInt32 = 140, b: UInt32 = 160
-        switch midiInst {
-        case .percussion:
+        if midiInst.isPercussion {
             r = 230; g = 80; b = 50
-        case .bass:
-            r = 30; g = 130; b = 230
-        case .guitar, .cleanGuitar, .nylonGuitar, .overdriveGuitar, .distortionGuitar:
-            r = 50; g = 180; b = 80
-        case .piano, .electricPiano, .organ:
-            r = 150; g = 70; b = 210
-        case .strings, .violin, .cello:
-            r = 230; g = 160; b = 30
-        case .brass, .trumpet:
-            r = 230; g = 200; b = 30
-        case .flute, .sax:
-            r = 30; g = 180; b = 180
-        case .choir, .pad:
-            r = 220; g = 100; b = 180
-        case .unknown:
-            break
+        } else {
+            switch midiInst.program {
+            case 0...7: // Piano & Keys
+                r = 150; g = 70; b = 210
+            case 8...15, 112...119: // Chromatic Percussion & Percussive
+                r = 230; g = 80; b = 50
+            case 16...23: // Organ
+                r = 150; g = 70; b = 210
+            case 24...31: // Guitar
+                r = 50; g = 180; b = 80
+            case 32...39: // Bass
+                r = 30; g = 130; b = 230
+            case 40...51: // Strings & Ensemble
+                r = 230; g = 160; b = 30
+            case 52...55: // Choir & Voices
+                r = 220; g = 100; b = 180
+            case 56...63: // Brass
+                r = 230; g = 200; b = 30
+            case 64...71: // Reeds
+                r = 30; g = 180; b = 180
+            case 72...79: // Pipes
+                r = 30; g = 180; b = 180
+            case 80...87: // Synth Lead
+                r = 240; g = 80; b = 160
+            case 88...95: // Synth Pad
+                r = 220; g = 100; b = 180
+            case 96...103, 120...127: // FX & Sound FX
+                r = 100; g = 200; b = 220
+            case 104...111: // Ethnic
+                r = 200; g = 140; b = 60
+            default:
+                break
+            }
         }
         let native = (r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16)
         return 0x1000000 | native
