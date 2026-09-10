@@ -6,6 +6,8 @@ public enum MIDIMessage: Equatable, Sendable {
     case tempo(Double)
     case timeSignature(Beat)
     case endOfTrack
+    case text(String)
+    case customMeta(type: UInt8, data: Data)
     case noteOn(channel: UInt8, note: UInt8, velocity: UInt8)
     case noteOff(channel: UInt8, note: UInt8)
     case programChange(channel: UInt8, program: UInt8)
@@ -23,8 +25,8 @@ public struct MIDIEvent: Equatable, Sendable {
 }
 
 /// Encodes typed MIDI content into Standard MIDI File binary data.
-final class TMDMIDIEncoder {
-    static func encodeFile(tracks: [Data], ticksPerQuarter: UInt16) -> Data {
+public final class TMDMIDIEncoder {
+    public static func encodeFile(tracks: [Data], ticksPerQuarter: UInt16) -> Data {
         let encodedTracks = tracks.prefix(Int(UInt16.max))
         let header = Data("MThd".utf8)
             + Data(UInt32(6).bigEndianBytes)
@@ -38,7 +40,7 @@ final class TMDMIDIEncoder {
         }
     }
 
-    static func encodeTrack(events: [MIDIEvent]) -> Data {
+    public static func encodeTrack(events: [MIDIEvent]) -> Data {
         var sorted = events.sorted { $0.tick < $1.tick }
         let lastTick = sorted.last?.tick ?? 0
         sorted.append(MIDIEvent(tick: lastTick, message: .endOfTrack))
@@ -64,6 +66,10 @@ final class TMDMIDIEncoder {
             return metaEvent(type: 0x58, data: Data([UInt8(clamping: max(1, beat.count)), denominator, 24, 8]))
         case .endOfTrack:
             return metaEvent(type: 0x2F, data: Data())
+        case .text(let text):
+            return metaEvent(type: 0x01, data: Data(text.utf8))
+        case .customMeta(let type, let data):
+            return metaEvent(type: type, data: data)
         case .noteOn(let channel, let note, let velocity):
             return Data([0x90 | channel, note, velocity])
         case .noteOff(let channel, let note):

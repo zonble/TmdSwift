@@ -87,24 +87,32 @@ struct MusicXMLValidationTests {
     }
 
     @Test func testMusicXMLMuseScoreCLIImport() throws {
-        let whichMScore = Process()
-        whichMScore.executableURL = URL(fileURLWithPath: "/usr/bin/which")
-        whichMScore.arguments = ["mscore"]
-        let pipe = Pipe()
-        whichMScore.standardOutput = pipe
-        try? whichMScore.run()
-        whichMScore.waitUntilExit()
-
         var mscorePath: String?
-        if whichMScore.terminationStatus == 0 {
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let output, !output.isEmpty, FileManager.default.isExecutableFile(atPath: output) {
-                mscorePath = output
+
+        #if !os(Windows)
+        if FileManager.default.isExecutableFile(atPath: "/usr/bin/which") {
+            let whichMScore = Process()
+            whichMScore.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+            whichMScore.arguments = ["mscore"]
+            let pipe = Pipe()
+            whichMScore.standardOutput = pipe
+            do {
+                try whichMScore.run()
+                whichMScore.waitUntilExit()
+                if whichMScore.terminationStatus == 0 {
+                    let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let output, !output.isEmpty, FileManager.default.isExecutableFile(atPath: output) {
+                        mscorePath = output
+                    }
+                }
+            } catch {
+                // Ignore process failure
             }
         }
         if mscorePath == nil && FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/mscore") {
             mscorePath = "/opt/homebrew/bin/mscore"
         }
+        #endif
 
         guard let executable = mscorePath else {
             return

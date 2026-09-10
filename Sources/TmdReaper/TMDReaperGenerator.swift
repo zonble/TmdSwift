@@ -172,7 +172,7 @@ public struct TMDReaperGenerator {
                     let data1 = toHex2(ctrl & 0x7F)
                     let data2 = toHex2(val & 0x7F)
                     eventLines.append("        E \(delta) \(status) \(data1) \(data2)")
-                case .trackName, .tempo, .timeSignature, .endOfTrack:
+                case .trackName, .tempo, .timeSignature, .endOfTrack, .text, .customMeta:
                     break
                 }
             }

@@ -9,6 +9,7 @@ import TmdABC
 import TmdChordPro
 import TmdReaper
 import TmdSkill
+import TmdVocaloid
 
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -53,6 +54,15 @@ struct TmdCLICommand: ParsableCommand {
 
     @Option(name: [.customShort("w"), .long], help: "Render to WAV audio file at the specified path.")
     var wavOutput: String?
+
+    @Option(name: [.customLong("vsq-output")], help: "Export vocal track to VOCALOID2 (.vsq) file at the specified path.")
+    var vsqOutput: String?
+
+    @Option(name: [.customLong("vsqx-output")], help: "Export vocal track to VOCALOID3/4 (.vsqx) XML file at the specified path.")
+    var vsqxOutput: String?
+
+    @Option(name: [.long], help: "Vocaloid singer name (defaults to Miku).")
+    var singer: String = "Miku"
 
     @Option(name: [.long], help: "Optional SoundFont (.sf2) or DLS soundbank path for audio rendering.")
     var soundfont: String?
@@ -214,6 +224,34 @@ struct TmdCLICommand: ParsableCommand {
                 print("WAV rendered successfully to \(wavPath) (\(wavData.count) bytes)")
             } catch {
                 print("Error rendering WAV audio: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
+
+        // Export to VOCALOID2 (.vsq) if requested
+        if let vsqPath = vsqOutput {
+            let options = VocaloidExportOptions(singerName: singer)
+            let vsqData = TMDVSQGenerator.generateVSQ(from: sheet, options: options)
+            let outURL = URL(fileURLWithPath: vsqPath)
+            do {
+                try vsqData.write(to: outURL)
+                print("VOCALOID2 (.vsq) exported successfully to \(vsqPath) (\(vsqData.count) bytes)")
+            } catch {
+                print("Error saving VSQ file: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
+
+        // Export to VOCALOID3/4 (.vsqx) if requested
+        if let vsqxPath = vsqxOutput {
+            let options = VocaloidExportOptions(singerName: singer)
+            let vsqxString = TMDVSQXGenerator.generateVSQX(from: sheet, options: options)
+            let outURL = URL(fileURLWithPath: vsqxPath)
+            do {
+                try vsqxString.write(to: outURL, atomically: true, encoding: .utf8)
+                print("VOCALOID3/4 (.vsqx) exported successfully to \(vsqxPath) (\(vsqxString.utf8.count) bytes)")
+            } catch {
+                print("Error saving VSQX file: \(error.localizedDescription)")
                 throw ExitCode.failure
             }
         }
