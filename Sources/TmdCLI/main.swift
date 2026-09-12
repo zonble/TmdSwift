@@ -10,6 +10,7 @@ import TmdChordPro
 import TmdReaper
 import TmdSkill
 import TmdVocaloid
+import TmdUTAU
 
 struct TmdCLICommand: ParsableCommand {
     static let configuration = CommandConfiguration(
@@ -60,6 +61,9 @@ struct TmdCLICommand: ParsableCommand {
 
     @Option(name: [.customLong("vsqx-output")], help: "Export vocal track to VOCALOID3/4 (.vsqx) XML file at the specified path.")
     var vsqxOutput: String?
+
+    @Option(name: [.customShort("u"), .customLong("ust-output")], help: "Export vocal track to UTAU / OpenUtau (.ust) file at the specified path.")
+    var ustOutput: String?
 
     @Option(name: [.long], help: "Vocaloid singer name (defaults to Miku).")
     var singer: String = "Miku"
@@ -252,6 +256,20 @@ struct TmdCLICommand: ParsableCommand {
                 print("VOCALOID3/4 (.vsqx) exported successfully to \(vsqxPath) (\(vsqxString.utf8.count) bytes)")
             } catch {
                 print("Error saving VSQX file: \(error.localizedDescription)")
+                throw ExitCode.failure
+            }
+        }
+
+        // Export to UTAU / OpenUtau (.ust) if requested
+        if let ustPath = ustOutput {
+            let options = USTExportOptions(projectName: sheet.name)
+            let ustString = TMDUSTGenerator.generateUST(from: sheet, options: options)
+            let outURL = URL(fileURLWithPath: ustPath)
+            do {
+                try ustString.write(to: outURL, atomically: true, encoding: .utf8)
+                print("UTAU (.ust) exported successfully to \(ustPath) (\(ustString.utf8.count) bytes)")
+            } catch {
+                print("Error saving UST file: \(error.localizedDescription)")
                 throw ExitCode.failure
             }
         }

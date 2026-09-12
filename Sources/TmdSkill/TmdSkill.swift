@@ -303,7 +303,14 @@ tmd score.tmd -c score.cho
 # 7. Render offline WAV audio (macOS DLS / SoundFont)
 tmd score.tmd -w output.wav
 
-# 8. Install this skill into AI agent directories
+# 8. Export vocal track to VOCALOID (.vsq, .vsqx)
+tmd score.tmd --vsq-output vocal.vsq --singer Miku
+tmd score.tmd --vsqx-output vocal.vsqx --singer Miku
+
+# 9. Export vocal track to UTAU / OpenUtau (.ust)
+tmd score.tmd -u vocal.ust
+
+# 10. Install this skill into AI agent directories
 tmd --install-skills
 ```
 

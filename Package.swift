@@ -51,6 +51,10 @@ let package = Package(
             name: "TmdVocaloid",
             targets: ["TmdVocaloid"]
         ),
+        .library(
+            name: "TmdUTAU",
+            targets: ["TmdUTAU"]
+        ),
         .executable(
             name: "tmd",
             targets: ["TmdCLI"]
@@ -104,6 +108,10 @@ let package = Package(
             name: "TmdVocaloid",
             dependencies: ["TmdSwift", "TmdMIDI"]
         ),
+        .target(
+            name: "TmdUTAU",
+            dependencies: ["TmdSwift", "TmdMIDI"]
+        ),
         .executableTarget(
             name: "TmdCLI",
             dependencies: [
@@ -118,12 +126,13 @@ let package = Package(
                 "TmdSkill",
                 "TmdUtils",
                 "TmdVocaloid",
+                "TmdUTAU",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "TmdSwiftTests",
-            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdABC", "TmdChordPro", "TmdReaper", "TmdAudio", "TmdSkill", "TmdUtils", "TmdVocaloid"]
+            dependencies: ["TmdSwift", "TmdMIDI", "TmdMusicXML", "TmdLilyPond", "TmdABC", "TmdChordPro", "TmdReaper", "TmdAudio", "TmdSkill", "TmdUtils", "TmdVocaloid", "TmdUTAU"]
         ),
     ],
     swiftLanguageModes: [.v6]
